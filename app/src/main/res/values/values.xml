@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Parental Lock</string>
+    <string name="service_label">Parental Lock</string>
+    <string name="locked_message">It isn\'t TV time right now!</string>
+    <string name="one_minute_left">One minute of TV time left</string>
+    <string name="settings_locked">Settings are locked. A parent can open them from the phone.</string>
+    <string name="info_no_tailscale">No Tailscale address found. Open Tailscale on this TV and connect it first.</string>
+    <string name="info_open">On a phone connected to Tailscale, open:\n%1$s</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">家長鎖定</string>
+    <string name="service_label">家長鎖定</string>
+    <string name="locked_message">現在不是可以看電視的時間喔！</string>
+    <string name="one_minute_left">看電視時間剩 1 分鐘</string>
+    <string name="settings_locked">設定已鎖定，請家長從手機開啟</string>
+    <string name="info_no_tailscale">找不到 Tailscale 位址，請先打開電視上的 Tailscale 並連線。</string>
+    <string name="info_open">用手機（已連上 Tailscale）打開：\n%1$s</string>
+</resources>
