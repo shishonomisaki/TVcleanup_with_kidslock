@@ -29,11 +29,6 @@ phone is set to Chinese.
 
 - Tailscale on the TV, signed in and set as the always-on VPN so it reconnects after a reboot (the install
   script does that), and Tailscale on the parent's phone, on the same tailnet.
-- A second parent on their own Tailscale account: share the TV with them (admin console, the TV's `⋯` menu,
-  Share), and check that the tailnet's access rules let them reach it. A policy that only opens devices to
-  `autogroup:admin` or a group leaves a shared-in user with `ERR_CONNECTION_ABORTED`; a grant for just the page
-  is enough: `{"src": ["their@login"], "dst": ["<TV's 100.x address>"], "ip": ["tcp:8765"]}`. Connections
-  that reach the TV and are dropped show in `logcat -s ParentLock`; nothing there means Tailscale stopped them.
 - Keep network debugging (ADB) on. It is the way back from a forgotten PIN: with it off, Settings is locked and
   a factory reset is the only way out. The TV still asks before a new computer may connect.
 
