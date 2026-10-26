@@ -71,7 +71,10 @@ final class WebServer {
     private void handle(Socket c) {
         try (Socket client = c) {
             client.setSoTimeout(5000);
-            if (!isTailnet(client.getInetAddress())) return;   // drop, say nothing
+            if (!isTailnet(client.getInetAddress())) {   // drop, say nothing
+                android.util.Log.i("ParentLock", "dropped " + client.getInetAddress());
+                return;
+            }
             InputStream in = client.getInputStream();
             String requestLine = readLine(in);
             if (requestLine == null) return;
@@ -95,7 +98,8 @@ final class WebServer {
             if (parts.length < 2) return;
             route(parts[0], parts[1], parse(new String(body, 0, read, StandardCharsets.UTF_8)),
                     client.getOutputStream());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            android.util.Log.i("ParentLock", "request failed: " + e);
         }
     }
 
