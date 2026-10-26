@@ -3,8 +3,16 @@
     <string name="app_name">Parental Lock</string>
     <string name="service_label">Parental Lock</string>
     <string name="locked_message">It isn\'t TV time right now!</string>
-    <string name="one_minute_left">One minute of TV time left</string>
+    <string name="countdown_left">⏱ %1$s left</string>
+    <string name="countdown_alert">⏰ %1$s left, time to wrap up!</string>
     <string name="settings_locked">Settings are locked. A parent can open them from the phone.</string>
     <string name="info_no_tailscale">No Tailscale address found. Open Tailscale on this TV and connect it first.</string>
+    <!-- Lock screen, 03:00 to 08:00: one of these, picked at random each time it comes up. -->
+    <string-array name="bedtime_lines">
+        <item>It\'s still sleeping time. Back to bed: sleep helps you grow!</item>
+        <item>Even the sun isn\'t up yet. Go back to sleep for a while!</item>
+        <item>The morning can wait. Snuggle back under the covers!</item>
+        <item>A good sleep now means more energy to play later. Back to bed!</item>
+    </string-array>
     <string name="info_open">On a phone connected to Tailscale, open:\n%1$s</string>
 </resources>

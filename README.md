@@ -16,13 +16,14 @@ phone is set to Chinese.
 | **Status** | Online or offline, a ring counting down the time left (green) or the lock (red), the app on screen, and today's viewing time and unlocks. |
 | **1. Pick the viewing time** | 30, 60, 90 or 120 minutes. Unlock stays greyed out until a time is picked and the PIN is six digits. |
 | **2. Enter the PIN** | Chosen on the phone on the first visit, so it never passes through adb. Five wrong PINs lock the page for ten minutes. |
+| **+30 min** | Extends an open window, twice per unlock at most (60 minutes): the first time with no PIN, the second with it. Greyed out while the TV is locked. |
 | **Lock now** | No PIN: a second press within four seconds confirms. |
 | **Open Settings 5 min** | Needs the PIN and an unlocked TV. Settings is otherwise closed, so the lock can't be switched off from the TV. Five minutes later Settings closes, even if someone is still in it. |
 
 | On the TV | |
 |---|---|
-| **Lock screen** | Covers apps, Live TV and HDMI inputs, and comes back over whatever reaches the front. The power key still works; a voice search can open but not go anywhere. |
-| **Countdown** | A small pill with the time left, on Home only, so it never sits over a film. One minute before the end a toast says so. |
+| **Lock screen** | Covers apps, Live TV and HDMI inputs, and comes back over whatever reaches the front. The power key still works; a voice search can open but not go anywhere; a screensaver that comes up over it wakes on any key and the lock screen returns. Between 03:00 and 08:00 a second line suggests going back to bed, a different one each time. |
+| **Countdown** | A small see-through pill with the time left, on Home only. At 5, 3 and 1 minutes left it glows and blinks for 15 seconds, and over a film it shows in the top-left corner for those 15 seconds without taking focus, so playback and the remote carry on. |
 | **Volume per app** | Optional: each app comes back at the level it was last left at, kept separately for the TV's speakers and a Bluetooth speaker, with starting levels set over adb (below). Nothing is changed until one is set. |
 
 ## Before you start

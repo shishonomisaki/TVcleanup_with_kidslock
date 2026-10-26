@@ -25,7 +25,8 @@ public class GuardService extends AccessibilityService {
     private LockState state;
     private WebServer server;
     private boolean wasLocked = true;
-    private boolean warned;
+    private static final int[] ALERT_MINUTES = {5, 3, 1};
+    private final java.util.Set<Integer> alerted = new java.util.HashSet<>();
     private String lastForeground;
     private Countdown countdown;
     private String currentApp;   // the app whose volume is being tracked, null on Home or while locked
@@ -107,7 +108,29 @@ public class GuardService extends AccessibilityService {
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
-        return state != null && state.locked();
+        if (state == null || !state.locked()) return false;
+        // The screensaver came up over the lock screen: let the key through to wake it, then cover the TV again.
+        if (isDream(lastForeground)) {
+            lastForeground = null;
+            handler.postDelayed(this::showLock, 800);
+            return false;
+        }
+        return true;
+    }
+
+    /** The screensaver (a dream) in front: its own package, from the TV's screensaver setting or a known one. */
+    private boolean isDream(String pkg) {
+        if (pkg == null) return false;
+        try {
+            String c = android.provider.Settings.Secure.getString(getContentResolver(), "screensaver_components");
+            if (c != null) {
+                for (String component : c.split(",")) if (component.startsWith(pkg + "/")) return true;
+            }
+        } catch (Exception ignored) {
+            // hidden setting on some builds; fall back to the usual dreams
+        }
+        return pkg.equals("com.google.android.backdrop") || pkg.equals("com.google.android.apps.tv.dreamx")
+                || pkg.equals("com.android.dreams.basic");
     }
 
     @Override
@@ -131,18 +154,15 @@ public class GuardService extends AccessibilityService {
             lastForeground = foreground;
         }
         if (locked) {
-            countdown.update(false);
+            countdown.hide();
+            if (isDream(lastForeground)) return;   // the next key wakes it (onKeyEvent), then the lock comes back
             // On a window change, and on every periodic check in case a window slipped in without an event.
             if (lastForeground == null || !lastForeground.equals(getPackageName())) showLock();
             return;
         }
         if (foreground != null && !ownOverlay && !foreground.equals("com.android.systemui")) switchApp(foreground);
         countdown.update(isHome(lastForeground));
-        long left = state.remainingMs();
-        if (left <= 60_000 && !warned) {
-            warned = true;
-            Toast.makeText(this, R.string.one_minute_left, Toast.LENGTH_LONG).show();
-        }
+        alertNearEnd(state.remainingMs());
         // lastForeground, not the event's package: the periodic check also has to close Settings when its five
         // minutes run out while someone sits still in it.
         if (lastForeground != null && !state.settingsOpen()) {
@@ -154,6 +174,22 @@ public class GuardService extends AccessibilityService {
                 }
             }
         }
+    }
+
+    /**
+     * The countdown pill blinks at 5, 3 and 1 minutes left, once each. Only the last mark crossed fires (a
+     * 3-minute window gets one alert, not three), and an extension that lifts the time back above a mark
+     * re-arms it.
+     */
+    private void alertNearEnd(long left) {
+        Integer crossed = null;
+        for (int m : ALERT_MINUTES) {
+            if (left > m * 60_000L) alerted.remove(m);
+            else crossed = m;   // ALERT_MINUTES runs high to low, so this ends on the lowest mark crossed
+        }
+        if (crossed == null || alerted.contains(crossed)) return;
+        for (int m : ALERT_MINUTES) if (m >= crossed) alerted.add(m);
+        countdown.alert();
     }
 
     private void lockNow() {
@@ -168,7 +204,7 @@ public class GuardService extends AccessibilityService {
     }
 
     private void unlockNow() {
-        warned = false;
+        alerted.clear();
         setVolume(state.defaultVolume(output()));
         performGlobalAction(GLOBAL_ACTION_HOME);
     }
@@ -265,7 +301,7 @@ public class GuardService extends AccessibilityService {
         instance = null;
         handler.removeCallbacksAndMessages(null);
         ((AudioManager) getSystemService(Context.AUDIO_SERVICE)).unregisterAudioDeviceCallback(deviceCallback);
-        if (countdown != null) countdown.update(false);
+        if (countdown != null) countdown.hide();
         if (server != null) server.stop();
         super.onDestroy();
     }

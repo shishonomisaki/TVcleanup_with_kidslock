@@ -139,6 +139,28 @@ final class WebServer {
         }
         // Errors go out as codes (plus a number in "n"); the page words them in the phone's language.
         int[] n = new int[1];
+        // +30 min: only on an open window, twice per unlock; the first needs no PIN, the second does.
+        if (path.equals("/api/extend")) {
+            if (state.locked()) {
+                sendJson(out, 409, status().put("error", "not_open"));
+                return;
+            }
+            if (state.extensions() >= LockState.MAX_EXTENSIONS) {
+                sendJson(out, 409, status().put("error", "max_extend"));
+                return;
+            }
+            if (state.extensions() > 0) {
+                String err = state.checkPin(form.get("pin"), n);
+                if (err != null) {
+                    sendJson(out, 403, status().put("error", err).put("n", n[0]));
+                    return;
+                }
+            }
+            state.extend();
+            GuardService.refresh();
+            sendJson(out, 200, status());
+            return;
+        }
         String err = state.checkPin(form.get("pin"), n);
         if (err != null) {
             sendJson(out, 403, status().put("error", err).put("n", n[0]));
@@ -178,6 +200,8 @@ final class WebServer {
                 .put("settingsOpen", state.settingsOpen())
                 .put("settingsLeftSec", state.settingsLeftMs() / 1000)
                 .put("hasPin", state.hasPin())
+                .put("extensions", state.extensions())
+                .put("maxExtensions", LockState.MAX_EXTENSIONS)
                 .put("durationSec", state.durationMs() / 1000)
                 .put("watchedTodaySec", state.watchedTodayMs() / 1000)
                 .put("unlocksToday", state.unlocksToday())

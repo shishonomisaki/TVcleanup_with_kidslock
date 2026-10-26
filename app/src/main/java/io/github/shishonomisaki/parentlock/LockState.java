@@ -57,7 +57,24 @@ final class LockState {
         prefs.edit().putInt("boot", bootCount())
                 .putLong("until", SystemClock.elapsedRealtime() + minutes * 60_000L)
                 .putLong("durationMs", minutes * 60_000L)
+                .putInt("extensions", 0)
                 .putInt("unlocks", prefs.getInt("unlocks", 0) + 1).apply();
+    }
+
+    // "+30 min" on an open window: twice per unlock at most, the second time with the PIN (WebServer).
+
+    static final int EXTEND_MINUTES = 30;
+    static final int MAX_EXTENSIONS = 2;
+
+    synchronized int extensions() {
+        return prefs.getInt("extensions", 0);
+    }
+
+    synchronized void extend() {
+        long add = EXTEND_MINUTES * 60_000L;
+        prefs.edit().putLong("until", prefs.getLong("until", 0) + add)
+                .putLong("durationMs", prefs.getLong("durationMs", 0) + add)
+                .putInt("extensions", extensions() + 1).apply();
     }
 
     /** The length of the window the parent picked, for the phone page's ring. */

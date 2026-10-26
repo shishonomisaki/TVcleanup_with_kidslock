@@ -2,9 +2,17 @@
 <resources>
     <string name="app_name">家長鎖定</string>
     <string name="service_label">家長鎖定</string>
-    <string name="locked_message">現在不是可以看電視的時間喔！</string>
-    <string name="one_minute_left">看電視時間剩 1 分鐘</string>
+    <string name="locked_message">現在不是看電視的時間唷！</string>
+    <string name="countdown_left">⏱ 剩下 %1$s</string>
+    <string name="countdown_alert">⏰ 只剩 %1$s，準備收尾囉！</string>
     <string name="settings_locked">設定已鎖定，請家長從手機開啟</string>
     <string name="info_no_tailscale">找不到 Tailscale 位址，請先打開電視上的 Tailscale 並連線。</string>
+    <string-array name="bedtime_lines">
+        <item>這個時間還是回去睡覺吧！多睡多長高～～～</item>
+        <item>太陽公公都還沒起床喔，再回去睡一下吧！</item>
+        <item>早睡早起身體好，現在是睡覺時間喔～</item>
+        <item>睡飽飽才有精神玩，快回床上吧！</item>
+        <item>小眼睛還很睏對不對？回去被窩裡再睡一下～</item>
+    </string-array>
     <string name="info_open">用手機（已連上 Tailscale）打開：\n%1$s</string>
 </resources>
