@@ -79,6 +79,24 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .rtop{display:flex;align-items:center;justify-content:space-between;min-height:40px}
 .rstate{font-size:15px;font-weight:600}
 .rstate.locked{color:var(--red)}
+/* The last 10 minutes: the time left breathes in amber. */
+.rstate.warn{color:var(--amber-ink);animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.35}}
+.tools{display:flex;gap:8px;margin-left:auto;margin-right:14px}
+.tool{width:40px;height:40px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.tool svg{width:22px;height:22px;fill:currentColor}
+.tool.on{background:var(--red);color:#fff;animation:breathe 1.2s ease-in-out infinite}
+/* Keyboard: a sheet over the bottom of the page, so the remote never moves. */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 24px rgba(0,0,0,.25);padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+.sheet[hidden]{display:none}
+.sheet .in{max-width:440px;margin:0 auto}
+.sheet form{display:flex;gap:8px}
+.sheet input{flex:1}
+.sheet .send{background:var(--amber);color:var(--on-amber);font-weight:700;padding:12px 16px}
+.sheet .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.sheet .row button{padding:10px 0;font-size:15px}
+.sheet .err{min-height:20px;margin-top:6px}
 .pw{width:40px;height:40px;padding:0;border-radius:50%;background:transparent;border:2px solid var(--red);color:var(--red);
   display:flex;align-items:center;justify-content:center}
 .pw svg{width:20px;height:20px;fill:currentColor}
@@ -113,7 +131,7 @@ nav button{flex:1;max-width:204px;background:transparent;display:flex;flex-direc
 nav button svg{width:26px;height:26px;fill:currentColor}
 nav button[aria-selected="true"]{color:var(--fg);font-weight:700}
 nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
-@media (prefers-reduced-motion:reduce){#arc,.hold.going i{transition:none}}
+@media (prefers-reduced-motion:reduce){#arc,.hold.going i{transition:none}.rstate.warn,.tool.on{animation:none}}
 </style></head><body>
 <main>
 <header><div><h1 data-t="title"></h1><span class="conn"><span class="dot" id="dot"></span><span id="online"></span></span></div><div class="clock num" id="clock" aria-live="off"></div></header>
@@ -168,6 +186,10 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
   <p class="lbl" id="noremote" data-t="e_remote_off" hidden></p>
   <div id="remote">
     <div class="rtop"><span class="rstate" id="rstate"></span>
+      <span class="tools">
+        <button class="tool" id="kbbtn" data-a="keyboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg></button>
+        <button class="tool" id="mic" data-a="voice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 003-3V5a3 3 0 00-6 0v6a3 3 0 003 3zm5.3-3a5.3 5.3 0 01-10.6 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-1.7z"/></svg></button>
+      </span>
       <button class="pw" data-k="POWER" data-a="power"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button></div>
     <div class="dpad">
       <button class="u" data-k="DPAD_UP" data-a="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5z"/></svg></button>
@@ -197,6 +219,14 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 </section>
 </main>
 
+<div class="sheet" id="kb" hidden><div class="in">
+  <form id="kbform" autocomplete="off"><input id="kbtext" maxlength="200" enterkeyhint="send" data-p="typeHere">
+    <button class="send" type="submit" data-t="send"></button></form>
+  <div class="row"><button id="kbdel" data-a="del">⌫</button><button id="kbenter" data-a="enter">↵</button>
+    <button id="kbclose" data-t="close"></button></div>
+  <div class="err" id="kbmsg"></div>
+</div></div>
+
 <nav role="tablist">
   <button role="tab" id="t-time" aria-controls="tab-time"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7z"/></svg><span data-t="tabTime"></span></button>
   <button role="tab" id="t-remote" aria-controls="tab-remote"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H9a2 2 0 00-2 2v16a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2zm-3 3a2 2 0 110 4 2 2 0 010-4zm0 7a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-2 5h4v2h-4z"/></svg><span data-t="tabRemote"></span></button>
@@ -204,7 +234,7 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 
 <script>
 var ZH = /^zh/i.test(navigator.language || '');
-var T = ZH ? {title:'電視家長鎖',taipei:'台北',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
+var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'按住說話',typeHere:'打字，按送出才會傳到電視',send:'送出',close:'收起',del:'刪除一個字',enter:'確認（Enter）',sent:'已送出',listening:'聆聽中，放開就送出',sending:'送到電視…',voiceDone:'已送出語音',micNo:'手機不給麥克風權限',needHttps:'鍵盤和語音要用 https 網址開這一頁',e_text_len:'最多 200 個字',e_voice_short:'太短了，按住久一點再說',e_bad_request:'送不出去',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
   setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
   step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
   more:'更多',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
@@ -224,7 +254,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',watching:'正在看：',wa
   slot:'按鈕 ',slotOf:' 要開：',none:'（空）',appPin:'PIN',save:'儲存（要 PIN）',saved:'已儲存',
   e_launch_fail:'開不了這個 App',e_remote_off:'遙控器還沒設定（見 pi-relay 說明）',
   e_remote_locked:'電視鎖定中，解鎖後才能遙控',e_remote_fail:'按鍵沒送到（樹莓派連不到？）'}
-: {title:'Parental Lock',taipei:'Taipei',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
+: {title:'Parental Lock',taipei:'Taipei',keyboard:'Keyboard',voice:'Hold to talk',typeHere:'Type, then Send',send:'Send',close:'Close',del:'Delete',enter:'Enter',sent:'Sent',listening:'Listening, let go to send',sending:'Sending to the TV…',voiceDone:'Voice sent',micNo:'The phone did not allow the microphone',needHttps:'Keyboard and voice need the https address',e_text_len:'200 characters at most',e_voice_short:'Too short: hold a little longer',e_bad_request:'Could not send',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
   setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
   step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
   more:'More',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
@@ -330,7 +360,7 @@ function draw() {
   // Remote tab.
   $('noremote').hidden = !!s.remote; $('remote').hidden = !s.remote;
   $('rstate').textContent = shut ? T.locked : T.remain + mmss(left) + (ZH ? '' : ' ' + T.open);
-  $('rstate').className = shut ? 'rstate locked' : 'rstate num';
+  $('rstate').className = shut ? 'rstate locked' : left <= 600 ? 'rstate num warn' : 'rstate num';
   $('tab-remote').classList.toggle('locked-remote', shut);
   drawApps(s.apps || []);
 }
@@ -454,6 +484,79 @@ $('appsave').onclick = function () {
   }).catch(function () { say(msg4, T.noTv); });
 };
 
-clock(); poll(); setInterval(poll, 5000); setInterval(function () { draw(); clock(); }, 1000);
+clock(); // Keyboard and voice go to the relay through tailscale serve (/pi/...), so they need the https address.
+var viaPi = location.protocol === 'https:';
+function pi(what, body, type) {
+  return fetch('/pi/' + what, {method: 'POST', headers: {'Content-Type': type}, body: body})
+    .then(function (r) { return r.json(); });
+}
+var kbmsg = $('kbmsg');
+$('kbbtn').onclick = function () {
+  var kb = $('kb'); kb.hidden = !kb.hidden; say(kbmsg, viaPi ? '' : T.needHttps);
+  if (!kb.hidden) $('kbtext').focus();
+};
+$('kbclose').onclick = function () { $('kb').hidden = true; };
+$('kbform').onsubmit = function (e) {
+  e.preventDefault();
+  var t = $('kbtext').value.trim(); if (!t) return;
+  if (!viaPi) { say(kbmsg, T.needHttps); return; }
+  pi('text', t, 'text/plain; charset=utf-8').then(function (s) {
+    if (s.error) { say(kbmsg, E(s)); return; }
+    $('kbtext').value = ''; say(kbmsg, T.sent, true);
+  }).catch(function () { say(kbmsg, T.noTv); });
+};
+[['kbdel', 'DEL'], ['kbenter', 'ENTER']].forEach(function (k) {
+  $(k[0]).onclick = function () {
+    buzz(); if (!viaPi) { say(kbmsg, T.needHttps); return; }
+    pi('key', k[1], 'text/plain').then(function (s) { say(kbmsg, E(s)); }).catch(function () { say(kbmsg, T.noTv); });
+  };
+});
+
+// Voice: hold the mic, speak, let go. The phone records, turns it into 8 kHz 16-bit mono, and the relay
+// streams it to the TV's voice search.
+(function () {
+  var b = $('mic'), rec = null, MAX = 10000;
+  function stop(send) {
+    if (!rec) return;
+    var r = rec; rec = null; b.classList.remove('on'); clearTimeout(r.timer);
+    try { r.node.disconnect(); r.src.disconnect(); } catch (e) {}
+    r.stream.getTracks().forEach(function (t) { t.stop(); });
+    r.ctx.close();
+    if (!send) return;
+    var n = 0; r.parts.forEach(function (p) { n += p.length; });
+    var ratio = r.ctx.sampleRate / 8000, out = new Int16Array(Math.floor(n / ratio)), all = new Float32Array(n), o = 0;
+    r.parts.forEach(function (p) { all.set(p, o); o += p.length; });
+    for (var i = 0; i < out.length; i++) {
+      var a = Math.floor(i * ratio), z = Math.min(n, Math.floor((i + 1) * ratio)), sum = 0;
+      for (var j = a; j < z; j++) sum += all[j];
+      var v = sum / Math.max(1, z - a); out[i] = Math.max(-1, Math.min(1, v)) * 32767;
+    }
+    if (out.length < 4000) { say(msg4, T.e_voice_short); return; }
+    say(msg4, T.sending, true);
+    pi('voice', out.buffer, 'application/octet-stream').then(function (s) { say(msg4, s.error ? E(s) : T.voiceDone, !s.error); })
+      .catch(function () { say(msg4, T.noTv); });
+  }
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (!viaPi) { say(msg4, T.needHttps); return; }
+    if (rec || !navigator.mediaDevices) return;
+    var holding = true;
+    b.onpointerup = b.onpointerleave = b.onpointercancel = function () { holding = false; stop(true); };
+    navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true}})
+      .then(function (stream) {
+        // The permission prompt can outlast the press: then nothing is recorded.
+        if (!holding) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+        var Ctx = window.AudioContext || window.webkitAudioContext, ctx = new Ctx();
+        var src = ctx.createMediaStreamSource(stream), node = ctx.createScriptProcessor(4096, 1, 1), parts = [];
+        node.onaudioprocess = function (ev) { parts.push(new Float32Array(ev.inputBuffer.getChannelData(0))); };
+        src.connect(node); node.connect(ctx.destination);
+        rec = {stream: stream, ctx: ctx, src: src, node: node, parts: parts, timer: setTimeout(function () { stop(true); }, MAX)};
+        b.classList.add('on'); buzz(); say(msg4, T.listening, true);
+      }).catch(function () { say(msg4, T.micNo); });
+  });
+  b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+})();
+
+poll(); setInterval(poll, 5000); setInterval(function () { draw(); clock(); }, 1000);
 </script>
 </body></html>

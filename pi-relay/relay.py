@@ -10,9 +10,18 @@ carries the shared token. Keys outside KEYS are refused.
 With RELAY_PAGE set (the TV's Tailscale address and page port), it also passes
 127.0.0.1:6481 through to the phone page, for `tailscale serve` to put HTTPS in front of.
 tailscaled's own connections skip the Tailscale routes, so serve can't reach the TV directly.
+
+On 127.0.0.1:6482, also for `tailscale serve` (mounted at /pi), what the phone page sends
+straight to the TV's remote service: typed text, the keyboard's delete and enter, and voice.
+Each one asks the phone page first and is refused while the TV is locked.
+
+    POST /pi/text    body: UTF-8 text, 200 characters at most
+    POST /pi/key     body: DEL or ENTER
+    POST /pi/voice   body: 16-bit PCM, mono, 8000 Hz, 15 s at most
 """
 import asyncio
 import hmac
+import json
 import logging
 import os
 import sys
@@ -25,6 +34,10 @@ TV = os.environ["RELAY_TV"]              # the TV's LAN address; the only client
 HERE = os.path.dirname(os.path.abspath(__file__))
 PAGE = os.environ.get("RELAY_PAGE")     # "<tv 100.x>:<page port>", optional
 PAGE_PORT = int(os.environ.get("RELAY_PAGE_PORT", "6481"))
+PHONE_PORT = int(os.environ.get("RELAY_PHONE_PORT", "6482"))
+TEXT_MAX = 200
+VOICE_MAX = 15 * 16000                   # 15 s of 8 kHz 16-bit mono
+VOICE_CHUNK = 8 * 1024                   # the smallest chunk the TV takes, 0.256 s
 TOKEN = open(os.path.join(HERE, "token")).read().strip().encode()
 
 KEYS = {
@@ -118,6 +131,80 @@ async def page(reader, writer):
     await asyncio.gather(pipe(reader, tv_writer), pipe(tv_reader, writer))
 
 
+async def tv_locked():
+    """Ask the phone page; None when it can't be reached."""
+    host, port = PAGE.rsplit(":", 1)
+    try:
+        r, w = await asyncio.wait_for(asyncio.open_connection(host, int(port)), 5)
+        w.write(b"GET /api/status HTTP/1.0\r\n\r\n")
+        await w.drain()
+        data = await asyncio.wait_for(r.read(), 5)
+        w.close()
+        return bool(json.loads(data.split(b"\r\n\r\n", 1)[1])["locked"])
+    except Exception as e:
+        log.info("phone: status failed (%s)", e)
+        return None
+
+
+async def answer(writer, code, obj):
+    body = json.dumps(obj).encode()
+    writer.write(b"HTTP/1.1 %d X\r\nContent-Type: application/json\r\nContent-Length: %d\r\n"
+                 b"Cache-Control: no-store\r\nConnection: close\r\n\r\n%s" % (code, len(body), body))
+    await writer.drain()
+    writer.close()
+
+
+async def voice(pcm):
+    pcm += bytes(8000)                    # half a second of quiet, so the TV hears the end
+    async with await remote.start_voice() as stream:
+        for i in range(0, len(pcm), VOICE_CHUNK):
+            stream.send_chunk(pcm[i:i + VOICE_CHUNK])
+            await asyncio.sleep(VOICE_CHUNK / 16000 * 0.9)   # about as fast as it was spoken
+
+
+async def phone(reader, writer):
+    """Text, keyboard keys and voice from the phone page, through tailscale serve."""
+    try:
+        head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 10)
+        lines = head.decode("latin-1").split("\r\n")
+        method, path, _ = lines[0].split(" ", 2)
+        headers = {k.strip().lower(): v.strip()
+                   for k, v in (l.split(":", 1) for l in lines[1:] if ":" in l)}
+        length = int(headers.get("content-length", "0"))
+        what = path.rstrip("/").rsplit("/", 1)[-1]
+        if method != "POST" or what not in ("text", "key", "voice") or not 0 < length <= VOICE_MAX:
+            return await answer(writer, 400, {"error": "bad_request"})
+        body = await asyncio.wait_for(reader.readexactly(length), 30)
+        locked = await tv_locked()
+        if locked is None:
+            return await answer(writer, 502, {"error": "remote_fail"})
+        if locked:
+            return await answer(writer, 409, {"error": "remote_locked"})
+        if not ready.is_set():
+            return await answer(writer, 503, {"error": "remote_fail"})
+        if what == "text":
+            text = body.decode("utf-8").strip()
+            if not text or len(text) > TEXT_MAX:
+                return await answer(writer, 400, {"error": "text_len"})
+            remote.send_text(text)
+        elif what == "key":
+            key = body.decode().strip()
+            if key not in ("DEL", "ENTER"):
+                return await answer(writer, 400, {"error": "bad_request"})
+            remote.send_key_command(key)
+        else:
+            if len(body) < 8000 or len(body) % 2:
+                return await answer(writer, 400, {"error": "voice_short"})
+            await voice(body)
+        await answer(writer, 200, {"ok": True})
+    except Exception as e:  # a bad request must never take the relay down
+        log.info("phone: request failed: %s", e)
+        try:
+            await answer(writer, 502, {"error": "remote_fail"})
+        except Exception:
+            writer.close()
+
+
 async def main():
     global remote, ready
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -131,6 +218,8 @@ async def main():
         # localhost only: tailscale serve is the one client
         await asyncio.start_server(page, "127.0.0.1", PAGE_PORT)
         log.info("phone page on 127.0.0.1:%d -> %s", PAGE_PORT, PAGE)
+        await asyncio.start_server(phone, "127.0.0.1", PHONE_PORT)
+        log.info("text, keys and voice on 127.0.0.1:%d", PHONE_PORT)
     async with server:
         await server.serve_forever()
 

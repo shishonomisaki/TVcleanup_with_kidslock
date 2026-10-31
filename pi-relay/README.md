@@ -50,7 +50,9 @@ tools/tv.py "am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver 
 2. service 檔加上 `Environment=RELAY_PAGE=<電視的 100.x>:<手機頁面埠>`，重啟。`relay.py` 會在
    `127.0.0.1:6481` 把連線轉給電視的手機頁面
 3. `sudo tailscale serve --bg --https=443 http://127.0.0.1:6481`
-4. 手機開 `https://<這台機器>.<tailnet>.ts.net`
+4. 鍵盤和語音：`sudo tailscale serve --bg --https=443 --set-path /pi http://127.0.0.1:6482`。
+   `relay.py` 在這裡收文字、刪除／Enter 和語音，每次先問手機頁面電視有沒有鎖，鎖著就拒絕
+5. 手機開 `https://<這台機器>.<tailnet>.ts.net`
 
 不能讓 `tailscale serve` 直接轉到電視的 100.x：tailscaled 自己發出的連線不走 Tailscale 路由，會卡住沒有回應。
 憑證會出現在公開的憑證紀錄（CT log）裡，機器名稱和 tailnet 名稱會被看到。ACL 要把這台的 443 只開給家長。
