@@ -82,9 +82,10 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 /* The last 10 minutes: the time left breathes in amber. */
 .rstate.warn{color:var(--amber-ink);animation:breathe 2.4s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.35}}
-.tools{display:flex;gap:8px;margin-left:auto;margin-right:14px}
-.tool{width:40px;height:40px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.tool svg{width:22px;height:22px;fill:currentColor}
+.dwrap{position:relative}
+.tool.bl,.tool.br{position:absolute;bottom:4px}.tool.bl{left:0}.tool.br{right:0}
+.tool{width:48px;height:48px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.tool svg{width:24px;height:24px;fill:currentColor}
 .tool.on{background:var(--red);color:#fff;animation:breathe 1.2s ease-in-out infinite}
 /* Keyboard: a sheet over the bottom of the page, so the remote never moves. */
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-radius:20px 20px 0 0;
@@ -186,17 +187,17 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
   <p class="lbl" id="noremote" data-t="e_remote_off" hidden></p>
   <div id="remote">
     <div class="rtop"><span class="rstate" id="rstate"></span>
-      <span class="tools">
-        <button class="tool" id="kbbtn" data-a="keyboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg></button>
-        <button class="tool" id="mic" data-a="voice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 003-3V5a3 3 0 00-6 0v6a3 3 0 003 3zm5.3-3a5.3 5.3 0 01-10.6 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-1.7z"/></svg></button>
-      </span>
       <button class="pw" data-k="POWER" data-a="power"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button></div>
+    <div class="dwrap">
+        <button class="tool bl" id="mic" data-a="voice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 003-3V5a3 3 0 00-6 0v6a3 3 0 003 3zm5.3-3a5.3 5.3 0 01-10.6 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-1.7z"/></svg></button>
+        <button class="tool br" id="kbbtn" data-a="keyboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg></button>
     <div class="dpad">
       <button class="u" data-k="DPAD_UP" data-a="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5z"/></svg></button>
       <button class="l" data-k="DPAD_LEFT" data-a="left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7l-5 5 5 5z"/></svg></button>
       <button class="ok" data-k="DPAD_CENTER">OK</button>
       <button class="r" data-k="DPAD_RIGHT" data-a="right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5z"/></svg></button>
       <button class="d" data-k="DPAD_DOWN" data-a="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg></button>
+    </div>
     </div>
     <div class="keys">
       <button data-k="BACK" data-a="back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
