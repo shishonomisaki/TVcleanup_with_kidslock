@@ -17,7 +17,9 @@ Each one asks the phone page first and is refused while the TV is locked.
 
     POST /pi/text    body: UTF-8 text, 200 characters at most
     POST /pi/key     body: DEL or ENTER
-    POST /pi/voice   body: 16-bit PCM, mono, 8000 Hz, 15 s at most
+    POST /pi/vstart  opens the TV's voice search; answers once the TV listens
+    POST /pi/vchunk  body: 16-bit PCM, mono, 8000 Hz, sent while the person speaks
+    POST /pi/vend    closes it; the TV also gets closed after 3 s without audio or 15 s in all
 """
 import asyncio
 import hmac
@@ -27,6 +29,8 @@ import os
 import sys
 
 from androidtvremote2 import AndroidTVRemote, CannotConnect, ConnectionClosed, InvalidAuth
+from androidtvremote2.remote import RemoteProtocol
+from androidtvremote2.remotemessage_pb2 import RemoteMessage
 
 BIND = os.environ["RELAY_BIND"]          # the Pi's LAN address
 PORT = int(os.environ.get("RELAY_PORT", "6480"))
@@ -37,7 +41,7 @@ PAGE_PORT = int(os.environ.get("RELAY_PAGE_PORT", "6481"))
 PHONE_PORT = int(os.environ.get("RELAY_PHONE_PORT", "6482"))
 TEXT_MAX = 200
 VOICE_MAX = 15 * 16000                   # 15 s of 8 kHz 16-bit mono
-VOICE_CHUNK = 8 * 1024                   # the smallest chunk the TV takes, 0.256 s
+CHUNK_MAX = 20 * 1024                    # the largest chunk the TV takes; smaller ones are not recognised
 TOKEN = open(os.path.join(HERE, "token")).read().strip().encode()
 
 KEYS = {
@@ -51,6 +55,7 @@ KEYS = {
 log = logging.getLogger("relay")
 remote = None            # made in main(): the library needs the running event loop
 ready = None
+talk = None              # the open voice session: {"stream", "pcm", "last", "began"}
 
 
 async def keep_connected():
@@ -70,7 +75,8 @@ async def keep_connected():
     remote.keep_reconnecting()
     await asyncio.sleep(2)   # the TV drops the first key sent right after connecting
     ready.set()
-    log.info("connected to the TV")
+    log.info("connected to the TV, features %s",
+             getattr(remote._remote_message_protocol, "_active_features", "?"))
 
 
 async def reply(writer, code, text):
@@ -154,12 +160,59 @@ async def answer(writer, code, obj):
     writer.close()
 
 
-async def voice(pcm):
-    pcm += bytes(8000)                    # half a second of quiet, so the TV hears the end
-    async with await remote.start_voice() as stream:
-        for i in range(0, len(pcm), VOICE_CHUNK):
-            stream.send_chunk(pcm[i:i + VOICE_CHUNK])
-            await asyncio.sleep(VOICE_CHUNK / 16000 * 0.9)   # about as fast as it was spoken
+def tv_heard(handle):
+    """The TV sends remote_voice_payload back once it has heard the end of what was said, and then
+    searches. The library ignores it; the open session is marked over, so the phone stops, and the
+    session is not ended by us before that (ending it early cancels the search)."""
+    def wrapped(self, raw):
+        msg = RemoteMessage()
+        try:
+            msg.ParseFromString(raw)
+            if talk is not None and (msg.HasField("remote_voice_payload") or msg.HasField("remote_voice_end")):
+                talk["over"] = True
+                log.info("voice: the TV heard the end after %.1f s: %s",
+                         asyncio.get_running_loop().time() - talk["began"], str(msg).replace("\n", " "))
+        except Exception:
+            pass
+        return handle(self, raw)
+    return wrapped
+
+
+RemoteProtocol._handle_message = tv_heard(RemoteProtocol._handle_message)
+
+
+def voice_end():
+    global talk
+    if talk is None:
+        return
+    t, talk = talk, None
+    t["stream"].end()
+    log.info("voice: %.1f s sent, peak %d", len(t["pcm"]) / 16000, t["peak"])
+    # The last recording, for checking what the TV was sent; overwritten each time.
+    import wave
+    with wave.open(os.path.join(HERE, "last-voice.wav"), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000); w.writeframes(bytes(t["pcm"]))
+
+
+async def voice_watch(t):
+    """Close the session once the TV has searched, one the phone stopped feeding, or one that ran
+    too long. After the phone stops, quiet is sent for up to 4 s so the TV can hear the end."""
+    loop = asyncio.get_running_loop()
+    while talk is t:
+        await asyncio.sleep(0.25)
+        now = loop.time()
+        if t["over"]:
+            await asyncio.sleep(3)   # ending it at once can cancel the search
+            if talk is t:
+                voice_end()
+        elif t.get("closing"):
+            if now - t["closing"] > 4:
+                voice_end()
+            elif now - t.get("quiet", 0) >= 1.28:   # one 20 KB piece of quiet at a time
+                t["quiet"] = now
+                t["stream"].send_chunk(bytes(CHUNK_MAX))
+        elif now - t["last"] > 3 or now - t["began"] > 15:
+            voice_end()
 
 
 async def phone(reader, writer):
@@ -172,9 +225,27 @@ async def phone(reader, writer):
                    for k, v in (l.split(":", 1) for l in lines[1:] if ":" in l)}
         length = int(headers.get("content-length", "0"))
         what = path.rstrip("/").rsplit("/", 1)[-1]
-        if method != "POST" or what not in ("text", "key", "voice") or not 0 < length <= VOICE_MAX:
+        if method != "POST" or what not in ("text", "key", "vstart", "vchunk", "vend") \
+                or not 0 <= length <= CHUNK_MAX:
             return await answer(writer, 400, {"error": "bad_request"})
         body = await asyncio.wait_for(reader.readexactly(length), 30)
+        global talk
+        if what == "vchunk":   # no lock check per chunk: the session only opens while unlocked
+            if talk is None or talk["over"]:
+                return await answer(writer, 409, {"error": "voice_over"})
+            if length % 2 or len(talk["pcm"]) + length > VOICE_MAX:
+                voice_end()
+                return await answer(writer, 409, {"error": "voice_over"})
+            talk["stream"].send_chunk(body)
+            talk["pcm"] += body
+            talk["peak"] = max(talk["peak"], max((abs(int.from_bytes(body[i:i + 2], "little", signed=True))
+                                                  for i in range(0, length, 2)), default=0))
+            talk["last"] = asyncio.get_running_loop().time()
+            return await answer(writer, 200, {"ok": True})
+        if what == "vend":
+            if talk is not None and not talk["over"] and not talk.get("closing"):
+                talk["closing"] = asyncio.get_running_loop().time()   # the TV may still be listening
+            return await answer(writer, 200, {"ok": True})
         locked = await tv_locked()
         if locked is None:
             return await answer(writer, 502, {"error": "remote_fail"})
@@ -186,6 +257,9 @@ async def phone(reader, writer):
             text = body.decode("utf-8").strip()
             if not text or len(text) > TEXT_MAX:
                 return await answer(writer, 400, {"error": "text_len"})
+            proto = remote._remote_message_protocol
+            log.info("text: %d chars, ime counters %s/%s", len(text),
+                     getattr(proto, "ime_counter", "?"), getattr(proto, "ime_field_counter", "?"))
             remote.send_text(text)
         elif what == "key":
             key = body.decode().strip()
@@ -193,9 +267,13 @@ async def phone(reader, writer):
                 return await answer(writer, 400, {"error": "bad_request"})
             remote.send_key_command(key)
         else:
-            if len(body) < 8000 or len(body) % 2:
-                return await answer(writer, 400, {"error": "voice_short"})
-            await voice(body)
+            voice_end()
+            stream = await remote.start_voice()
+            now = asyncio.get_running_loop().time()
+            talk = {"stream": stream, "pcm": bytearray(), "peak": 0, "last": now, "began": now,
+                    "over": False}
+            asyncio.create_task(voice_watch(talk))
+            log.info("voice: session %s open", stream.session_id)
         await answer(writer, 200, {"ok": True})
     except Exception as e:  # a bad request must never take the relay down
         log.info("phone: request failed: %s", e)
@@ -207,9 +285,13 @@ async def phone(reader, writer):
 
 async def main():
     global remote, ready
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    # Also to relay.log beside this file: the user journal is not kept on every Pi.
+    from logging.handlers import RotatingFileHandler
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", handlers=[
+        logging.StreamHandler(), RotatingFileHandler(os.path.join(HERE, "relay.log"), maxBytes=200_000, backupCount=1)])
     remote = AndroidTVRemote("PiNAS remote relay",
-                             os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem"), TV)
+                             os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem"), TV,
+                             enable_voice=True)   # off by default: the TV then never opens a voice session
     ready = asyncio.Event()
     asyncio.create_task(keep_connected())
     server = await asyncio.start_server(handle, BIND, PORT)
