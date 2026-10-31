@@ -7,6 +7,7 @@ adbkey*
 *.pem
 pair-code
 *.log
+*.wav
 
 # Builds
 build/
