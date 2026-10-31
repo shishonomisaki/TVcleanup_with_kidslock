@@ -75,6 +75,7 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .seg button[aria-pressed="true"]{background:var(--card);font-weight:700}
 
 /* Remote tab */
+.rcard{padding:12px}
 .rtop{display:flex;align-items:center;justify-content:space-between;min-height:40px}
 .rstate{font-size:15px;font-weight:600}
 .rstate.locked{color:var(--red)}
@@ -82,7 +83,7 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
   display:flex;align-items:center;justify-content:center}
 .pw svg{width:20px;height:20px;fill:currentColor}
 /* The D-pad is a ring, like the countdown: four arcs and OK in the middle. */
-.dpad{position:relative;width:clamp(200px,calc(100dvh - 500px),264px);max-width:100%;aspect-ratio:1;margin:8px auto 4px;border-radius:50%;background:var(--raise)}
+.dpad{position:relative;width:clamp(196px,calc(100dvh - 540px),264px);max-width:100%;aspect-ratio:1;margin:8px auto 4px;border-radius:50%;background:var(--raise)}
 .dpad button{position:absolute;background:transparent;border-radius:0;padding:0;display:flex;align-items:center;justify-content:center}
 .dpad button svg{width:30px;height:30px;fill:var(--fg)}
 .dpad .u{top:0;left:30%;width:40%;height:30%}
@@ -184,7 +185,9 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
       <button data-k="VOLUME_UP" data-a="volUp">+</button>
     </div>
   </div>
-    <div class="apps" id="apps"></div>
+  </div>
+  <div class="card rcard">
+    <div class="apps" id="apps" style="margin-top:0"></div>
     <button class="link" id="appedit" data-t="editApps"></button>
     <div id="appbox" hidden><b id="appslot"></b><select id="apppick"></select>
       <input id="apppin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-p="appPin">
@@ -206,7 +209,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',watching:'正在看：',wa
   step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
   more:'更多',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
   theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',tabTime:'時間',tabRemote:'遙控',
-  online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',left:'剩 ',
+  online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',remain:'剩 ',
   min:'分',h:' 時 ',m:' 分',times:' 次',setOpen:'開放中',setShut:'關閉',
   noTv:'連不到電視（手機的 Tailscale 有開嗎？）',pinFor:'第 2 次起延長要 PIN',settingsUntil:'設定開放到 ',
   pinFormat:'PIN 要 6 位數字',pinMismatch:'兩次輸入不一樣',
@@ -226,7 +229,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',watching:'正在看：',wa
   step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
   more:'More',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
   theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',tabTime:'Time',tabRemote:'Remote',
-  online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',left:'',
+  online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',remain:'',
   min:'min',h:' h ',m:' min',times:'',setOpen:'Open',setShut:'Closed',
   noTv:'Cannot reach the TV (is Tailscale on?)',pinFor:'Extensions after the first need the PIN',settingsUntil:'Settings open until ',
   pinFormat:'The PIN is 6 digits',pinMismatch:'The two PINs differ',
@@ -326,7 +329,7 @@ function draw() {
   $('pin2').hidden = used === 0 || used >= max;
   // Remote tab.
   $('noremote').hidden = !!s.remote; $('remote').hidden = !s.remote;
-  $('rstate').textContent = shut ? T.locked : T.left + mmss(left) + (ZH ? '' : ' ' + T.open);
+  $('rstate').textContent = shut ? T.locked : T.remain + mmss(left) + (ZH ? '' : ' ' + T.open);
   $('rstate').className = shut ? 'rstate locked' : 'rstate num';
   $('tab-remote').classList.toggle('locked-remote', shut);
   drawApps(s.apps || []);
