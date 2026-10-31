@@ -10,6 +10,8 @@ WorkingDirectory=%h/tvremote
 Environment=RELAY_BIND=<this machine's LAN address>
 Environment=RELAY_TV=<the TV's LAN address>
 Environment=RELAY_PORT=6480
+# optional, for HTTPS: the TV's Tailscale address and phone page port (see README)
+#Environment=RELAY_PAGE=<tv 100.x>:<page port>
 ExecStart=%h/tvremote/venv/bin/python %h/tvremote/relay.py
 Restart=always
 RestartSec=10

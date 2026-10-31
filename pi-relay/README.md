@@ -42,6 +42,19 @@ tools/tv.py "am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver 
   --es host <這台機器的區網IP> --ei port 6480 --es token <token 檔的內容>"
 ```
 
+## HTTPS（語音、麥克風需要）
+
+手機瀏覽器只在 HTTPS 頁面開放麥克風。用 Tailscale 自己的憑證，免費：
+
+1. Tailscale 後台 DNS 頁開 MagicDNS 和 HTTPS Certificates
+2. service 檔加上 `Environment=RELAY_PAGE=<電視的 100.x>:<手機頁面埠>`，重啟。`relay.py` 會在
+   `127.0.0.1:6481` 把連線轉給電視的手機頁面
+3. `sudo tailscale serve --bg --https=443 http://127.0.0.1:6481`
+4. 手機開 `https://<這台機器>.<tailnet>.ts.net`
+
+不能讓 `tailscale serve` 直接轉到電視的 100.x：tailscaled 自己發出的連線不走 Tailscale 路由，會卡住沒有回應。
+憑證會出現在公開的憑證紀錄（CT log）裡，機器名稱和 tailnet 名稱會被看到。ACL 要把這台的 443 只開給家長。
+
 ## 不要提交的檔案
 
 `token`、`cert.pem`、`key.pem`、`pair-code`、`*.log` 都只留在樹莓派上，`.gitignore` 已經擋掉。

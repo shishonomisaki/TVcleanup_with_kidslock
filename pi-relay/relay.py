@@ -6,6 +6,10 @@ Listens on the Pi's LAN address only, answers the TV's address only, and every r
 carries the shared token. Keys outside KEYS are refused.
 
     POST /key   header X-Token: <token>   body: DPAD_UP
+
+With RELAY_PAGE set (the TV's Tailscale address and page port), it also passes
+127.0.0.1:6481 through to the phone page, for `tailscale serve` to put HTTPS in front of.
+tailscaled's own connections skip the Tailscale routes, so serve can't reach the TV directly.
 """
 import asyncio
 import hmac
@@ -19,6 +23,8 @@ BIND = os.environ["RELAY_BIND"]          # the Pi's LAN address
 PORT = int(os.environ.get("RELAY_PORT", "6480"))
 TV = os.environ["RELAY_TV"]              # the TV's LAN address; the only client allowed
 HERE = os.path.dirname(os.path.abspath(__file__))
+PAGE = os.environ.get("RELAY_PAGE")     # "<tv 100.x>:<page port>", optional
+PAGE_PORT = int(os.environ.get("RELAY_PAGE_PORT", "6481"))
 TOKEN = open(os.path.join(HERE, "token")).read().strip().encode()
 
 KEYS = {
@@ -89,6 +95,29 @@ async def handle(reader, writer):
         writer.close()
 
 
+async def pipe(reader, writer):
+    try:
+        while data := await reader.read(65536):
+            writer.write(data)
+            await writer.drain()
+    except (ConnectionError, asyncio.CancelledError):
+        pass
+    finally:
+        writer.close()
+
+
+async def page(reader, writer):
+    """Pass one connection from tailscale serve through to the TV's phone page."""
+    host, port = PAGE.rsplit(":", 1)
+    try:
+        tv_reader, tv_writer = await asyncio.wait_for(asyncio.open_connection(host, int(port)), 5)
+    except (OSError, asyncio.TimeoutError) as e:
+        log.info("page: TV not reachable (%s)", e)
+        writer.close()
+        return
+    await asyncio.gather(pipe(reader, tv_writer), pipe(tv_reader, writer))
+
+
 async def main():
     global remote, ready
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -98,6 +127,10 @@ async def main():
     asyncio.create_task(keep_connected())
     server = await asyncio.start_server(handle, BIND, PORT)
     log.info("listening on %s:%d for %s", BIND, PORT, TV)
+    if PAGE:
+        # localhost only: tailscale serve is the one client
+        await asyncio.start_server(page, "127.0.0.1", PAGE_PORT)
+        log.info("phone page on 127.0.0.1:%d -> %s", PAGE_PORT, PAGE)
     async with server:
         await server.serve_forever()
 
