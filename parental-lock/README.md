@@ -53,7 +53,8 @@ issues and screenshots. Changing it later moves the page for every phone, so upd
 
 ## Over adb
 
-For a forgotten PIN, recovery, tests and the volume levels, from the adb shell only:
+For a forgotten PIN, recovery, tests and the volume levels, from the adb shell only (`tools/` is
+`upstream/cleanyourtv/tools/` in this repo):
 
 ```bash
 R=io.github.shishonomisaki.parentlock/.AdminReceiver
@@ -66,6 +67,7 @@ tools/tv.py "am broadcast -n $R -a SET_VOLUME --es output tv --es app com.netfli
 tools/tv.py "am broadcast -n $R -a RESET_VOLUMES"                # forget the levels learned per app
 tools/tv.py "am broadcast -n $R -a PORT"                         # the phone page's port (data="...")
 tools/tv.py "am broadcast -n $R -a SET_PORT --ei port <port>"    # move the page to a port you chose
+tools/tv.py "am broadcast -n $R -a SET_RELAY --es host <relay ip> --ei port 6480 --es token <token>"   # the remote, see ../pi-relay
 ```
 
 To take it off: `tools/tv.py "settings put secure enabled_accessibility_services ''"` (or remove just this
