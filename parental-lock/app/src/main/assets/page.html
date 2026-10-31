@@ -1,0 +1,610 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Parental Lock</title>
+<script>
+// Before the first paint, so a saved light/dark choice never flashes the other one.
+try { var th = localStorage.getItem('theme'); if (th === 'light' || th === 'dark') document.documentElement.setAttribute('data-theme', th); } catch (e) {}
+</script>
+<style>
+/* Living room at night: night blue, a lamp's amber for time to watch, a signal red for the lock. */
+:root{--bg:#EDEFF6;--card:#FFFFFF;--raise:#E3E6F1;--fg:#1A1E3A;--mute:#5D6378;--line:#D5D9E8;
+  --green:#2B8A3E;--amber:#F2B84B;--amber-ink:#8A5A00;--on-amber:#1A1E3A;--red:#C9343A;--track:#E3E6F1;--ok:#1A1E3A;--on-ok:#F2B84B}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--green:#46C26A;--bg:#1A1E3A;--card:#242950;--raise:#2E3462;
+  --fg:#E9EBF5;--mute:#8A90A8;--line:#363C6E;--amber:#F2B84B;--amber-ink:#F2B84B;--on-amber:#1A1E3A;--red:#E5484D;
+  --track:#2E3462;--ok:#F2B84B;--on-ok:#1A1E3A}}
+:root[data-theme="dark"]{--green:#46C26A;--bg:#1A1E3A;--card:#242950;--raise:#2E3462;--fg:#E9EBF5;--mute:#8A90A8;--line:#363C6E;
+  --amber:#F2B84B;--amber-ink:#F2B84B;--on-amber:#1A1E3A;--red:#E5484D;--track:#2E3462;--ok:#F2B84B;--on-ok:#1A1E3A}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Noto Sans TC",sans-serif;
+  -webkit-tap-highlight-color:transparent}
+main{max-width:440px;margin:0 auto;padding:12px 16px calc(96px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+h1{font-size:18px;margin:0;font-weight:700}
+.conn{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mute)}
+.dot.on{background:var(--green)}
+.clock{font-size:22px;font-weight:700;line-height:1}
+.clock small{font-size:11px;font-weight:400;color:var(--mute);margin-left:4px}
+section[hidden]{display:none}
+.card{background:var(--card);border-radius:20px;padding:16px;margin-top:12px}
+.lbl{font-size:14px;color:var(--mute);margin:0 0 10px}
+button{font:inherit;color:inherit;background:var(--raise);border:0;border-radius:14px;padding:14px;cursor:pointer;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+button:disabled{opacity:.4;cursor:default}
+button:active:not(:disabled){filter:brightness(1.15)}
+.primary{width:100%;background:var(--amber);color:var(--on-amber);font-weight:700;margin-top:12px}
+.err{min-height:22px;font-size:14px;color:var(--red);margin-top:8px}
+.err.good{color:var(--amber-ink)}
+.hint{font-size:13px;color:var(--mute);margin-top:8px}
+input,select{font:inherit;width:100%;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+input.pin{font-size:22px;letter-spacing:10px;text-align:center}
+input.pin::placeholder{letter-spacing:normal;font-size:16px}
+.num{font-family:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+
+/* Time tab */
+.ring{position:relative;width:220px;height:220px;margin:4px auto 0}
+.ring svg{transform:rotate(-90deg);display:block}
+.ring circle{fill:none;stroke-width:12}
+#arc{stroke-linecap:round;transition:stroke-dashoffset .8s,stroke .3s}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#big{font-size:46px;font-weight:700;line-height:1.1}
+#big svg{width:48px;height:48px;fill:var(--red)}
+#label{font-size:15px;color:var(--mute)}
+.showing{text-align:center;font-size:15px;margin-top:6px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;text-align:center}
+.stats div+div{border-left:1px solid var(--line)}
+.stats b{display:block;font-size:17px}
+.stats span{font-size:12px;color:var(--mute)}
+.picks{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.picks button{padding:14px 0;font-weight:600}
+.picks button[aria-pressed="true"]{background:var(--amber);color:var(--on-amber)}
+.picks small{display:block;font-size:11px;font-weight:400;opacity:.75}
+.hold{position:relative;overflow:hidden;width:100%;margin-top:10px;background:transparent;border:2px solid var(--red);color:var(--red);font-weight:700}
+.hold i{position:absolute;inset:0;background:var(--red);transform:scaleX(0);transform-origin:left;opacity:.25}
+.hold.going i{transform:scaleX(1);transition:transform 3s linear}
+details{margin-top:12px}
+summary{cursor:pointer;color:var(--mute);font-size:14px;padding:8px 0;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--raise);border-radius:14px;padding:4px;gap:4px}
+.seg button{padding:10px 0;background:transparent;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--card);font-weight:700}
+
+/* Remote tab */
+.rcard{padding:12px}
+.rtop{display:flex;align-items:center;justify-content:space-between;min-height:40px}
+.rstate{font-size:15px;font-weight:600}
+.rstate.locked{color:var(--red)}
+/* The last 10 minutes: the time left breathes in amber. */
+.rstate.warn{color:var(--amber-ink);animation:breathe 2.4s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.35}}
+.dwrap{position:relative}
+.tool.bl,.tool.br{position:absolute;bottom:0;z-index:1}.tool.bl{left:0}.tool.br{right:0}
+.tool{width:48px;height:48px;padding:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.tool svg{width:24px;height:24px;fill:currentColor}
+.tool.on{background:var(--red);color:#fff;animation:breathe 1.2s ease-in-out infinite}
+/* Keyboard: a sheet over the bottom of the page, so the remote never moves. */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 24px rgba(0,0,0,.25);padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+.sheet[hidden]{display:none}
+.sheet .in{max-width:440px;margin:0 auto}
+.sheet form{display:flex;gap:8px}
+.sheet input{flex:1}
+.sheet .send{background:var(--amber);color:var(--on-amber);font-weight:700;padding:12px 16px}
+.sheet .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.sheet .row button{padding:10px 0;font-size:15px}
+.sheet .err{min-height:20px;margin-top:6px}
+.pw{width:40px;height:40px;padding:0;border-radius:50%;background:transparent;border:2px solid var(--red);color:var(--red);
+  display:flex;align-items:center;justify-content:center}
+.pw svg{width:20px;height:20px;fill:currentColor}
+/* The D-pad is a ring, like the countdown: four arcs and OK in the middle. */
+.dpad{position:relative;width:clamp(232px,calc(100dvh - 500px),284px);max-width:100%;aspect-ratio:1;margin:6px auto 2px;border-radius:50%;background:var(--raise);overflow:hidden}
+.dpad button,.keys button{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.dpad button{position:absolute;background:transparent;border-radius:0;padding:0;display:flex;align-items:center;justify-content:center}
+.dpad button svg{width:30px;height:30px;fill:var(--fg)}
+/* Each direction owns a whole quarter of the ring, so there is no dead spot between them. */
+.dpad .u,.dpad .d,.dpad .l,.dpad .r{inset:0;width:100%;height:100%}
+.dpad .u{clip-path:polygon(0 0,100% 0,50% 50%);align-items:flex-start;padding-top:9%}
+.dpad .d{clip-path:polygon(0 100%,100% 100%,50% 50%);align-items:flex-end;padding-bottom:9%}
+.dpad .l{clip-path:polygon(0 0,0 100%,50% 50%);justify-content:flex-start;padding-left:9%}
+.dpad .r{clip-path:polygon(100% 0,100% 100%,50% 50%);justify-content:flex-end;padding-right:9%}
+.dpad .u:active,.dpad .d:active,.dpad .l:active,.dpad .r:active{background:var(--line)}
+.dpad .ok{z-index:2;top:30%;left:30%;width:40%;height:40%;border-radius:50%;background:var(--ok);color:var(--on-ok);font-weight:800;font-size:20px;
+  box-shadow:0 0 0 8px var(--card)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.keys button{height:50px;padding:0;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:600;line-height:1}
+.keys svg{width:30px;height:30px;fill:currentColor}
+.locked-remote .dpad,.locked-remote .keys,.locked-remote .apps{opacity:.35}
+.apps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.apps button{height:56px;padding:0 6px;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apps button.empty{background:transparent;border:2px dashed var(--line);color:var(--mute);font-size:24px;font-weight:400}
+.apps.editing button{outline:2px dashed var(--amber);outline-offset:-2px}
+.apps button.picked{background:var(--amber);color:var(--on-amber)}
+.link{background:none;padding:8px 0 0;color:var(--amber-ink);font-size:14px}
+#appbox select,#appbox input{margin-top:8px}
+
+/* Tab bar */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
+  padding:6px 16px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:8px}
+nav button{flex:1;max-width:204px;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:6px 0;font-size:12px;color:var(--mute)}
+nav button svg{width:26px;height:26px;fill:currentColor}
+nav button[aria-selected="true"]{color:var(--fg);font-weight:700}
+nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
+@media (prefers-reduced-motion:reduce){#arc,.hold.going i{transition:none}.rstate.warn,.tool.on{animation:none}}
+</style></head><body>
+<main>
+<header><div><h1 data-t="title"></h1><span class="conn"><span class="dot" id="dot"></span><span id="online"></span></span></div><div class="clock num" id="clock" aria-live="off"></div></header>
+
+<section id="tab-time" role="tabpanel">
+  <div class="card" id="setup" hidden><p class="lbl" data-t="setupTitle"></p>
+    <input id="newpin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-p="newPin">
+    <input id="newpin2" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-p="again" style="margin-top:8px">
+    <button class="primary" id="savepin" data-t="savePin"></button><div class="err" id="setmsg"></div></div>
+
+  <div class="card">
+    <div class="ring"><svg width="220" height="220" viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="96" stroke="var(--track)"/>
+      <circle id="arc" cx="110" cy="110" r="96" stroke="var(--mute)" stroke-dasharray="603.19" stroke-dashoffset="603.19"/>
+    </svg><div class="center"><div id="big" class="num">--:--</div><div id="label"></div></div></div>
+    <div class="showing"><span data-t="watching"></span><b id="showing">—</b></div>
+    <div class="stats"><div><b id="watched" class="num">—</b><span data-t="watchedToday"></span></div>
+      <div><b id="unlocks" class="num">—</b><span data-t="unlocksToday"></span></div>
+      <div><b id="setstate">—</b><span data-t="settings"></span></div></div>
+  </div>
+
+  <!-- Locked: pick a time, PIN, unlock. -->
+  <div class="card" id="whenLocked" hidden>
+    <p class="lbl" data-t="step1"></p><div class="picks" id="picks"></div>
+    <p class="lbl" data-t="step2" style="margin-top:14px"></p>
+    <input id="pin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
+    <button class="primary" id="go" disabled data-t="unlock"></button><div class="err" id="msg"></div>
+  </div>
+
+  <!-- Open: more time, lock, and the rarer things under "More". -->
+  <div class="card" id="whenOpen" hidden>
+    <button class="primary" id="ext" style="margin-top:0" disabled data-t="extend"></button>
+    <div class="hint" id="exthint"></div>
+    <input id="pin2" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-p="pinFor" style="margin-top:10px" hidden>
+    <button class="hold" id="lock"><i></i><span data-t="holdLock"></span></button>
+    <div class="err" id="msg3"></div>
+  </div>
+
+  <details id="more"><summary data-t="more"></summary>
+    <div class="card" style="margin-top:4px"><p class="lbl" data-t="openSettings"></p>
+      <input id="pin3" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
+      <button class="primary" id="set" data-t="openSettingsGo"></button>
+      <div class="hint" data-t="settingsHelp"></div><div class="err" id="msg2"></div></div>
+    <div class="card"><p class="lbl" data-t="theme"></p>
+      <div class="seg" id="theme"><button data-v="auto" data-t="themeAuto"></button><button data-v="light" data-t="themeLight"></button>
+        <button data-v="dark" data-t="themeDark"></button></div></div>
+  </details>
+</section>
+
+<section id="tab-remote" role="tabpanel" hidden>
+  <div class="card rcard">
+  <p class="lbl" id="noremote" data-t="e_remote_off" hidden></p>
+  <div id="remote">
+    <div class="rtop"><span class="rstate" id="rstate"></span>
+      <button class="pw" data-k="POWER" data-a="power"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg></button></div>
+    <div class="dwrap">
+        <button class="tool bl" id="mic" data-a="voice"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 003-3V5a3 3 0 00-6 0v6a3 3 0 003 3zm5.3-3a5.3 5.3 0 01-10.6 0H5a7 7 0 006 6.9V21h2v-3.1A7 7 0 0019 11h-1.7z"/></svg></button>
+        <button class="tool br" id="kbbtn" data-a="keyboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 5H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V7a2 2 0 00-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg></button>
+    <div class="dpad">
+      <button class="u" data-k="DPAD_UP" data-a="up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5z"/></svg></button>
+      <button class="l" data-k="DPAD_LEFT" data-a="left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 7l-5 5 5 5z"/></svg></button>
+      <button class="ok" data-k="DPAD_CENTER">OK</button>
+      <button class="r" data-k="DPAD_RIGHT" data-a="right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5z"/></svg></button>
+      <button class="d" data-k="DPAD_DOWN" data-a="down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg></button>
+    </div>
+    </div>
+    <div class="keys">
+      <button data-k="BACK" data-a="back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+      <button data-k="HOME" data-a="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></button>
+      <button data-k="MEDIA_PLAY_PAUSE" data-a="playPause"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5v14l10-7z M14 5h3v14h-3z M19 5h3v14h-3z"/></svg></button>
+      <button data-k="VOLUME_DOWN" data-a="volDown">−</button>
+      <button data-k="VOLUME_MUTE" data-a="mute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg></button>
+      <button data-k="VOLUME_UP" data-a="volUp">+</button>
+    </div>
+  </div>
+  </div>
+  <div class="card rcard">
+    <div class="apps" id="apps" style="margin-top:0"></div>
+    <button class="link" id="appedit" data-t="editApps"></button>
+    <div id="appbox" hidden><b id="appslot"></b><select id="apppick"></select>
+      <input id="apppin" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-p="appPin">
+      <button class="primary" id="appsave" data-t="save"></button></div>
+  </div>
+  <div class="err" id="msg4"></div>
+</section>
+</main>
+
+<div class="sheet" id="kb" hidden><div class="in">
+  <form id="kbform" autocomplete="off"><input id="kbtext" maxlength="200" enterkeyhint="send" data-p="typeHere">
+    <button class="send" type="submit" data-t="send"></button></form>
+  <div class="row"><button id="kbdel" data-a="del">⌫</button><button id="kbenter" data-a="enter">↵</button>
+    <button id="kbclose" data-t="close"></button></div>
+  <div class="err" id="kbmsg"></div>
+</div></div>
+
+<nav role="tablist">
+  <button role="tab" id="t-time" aria-controls="tab-time"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7z"/></svg><span data-t="tabTime"></span></button>
+  <button role="tab" id="t-remote" aria-controls="tab-remote"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H9a2 2 0 00-2 2v16a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2zm-3 3a2 2 0 110 4 2 2 0 010-4zm0 7a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-2 5h4v2h-4z"/></svg><span data-t="tabRemote"></span></button>
+</nav>
+
+<script>
+var ZH = /^zh/i.test(navigator.language || '');
+var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'按一下說話',typeHere:'打字，按送出才會傳到電視',send:'送出',close:'收起',del:'刪除一個字',enter:'確認（Enter）',sent:'已送出',listening:'請說話，說完會自動送出',waitTv:'等電視準備聽…',e_voice_over:'語音已結束',sending:'送到電視…',voiceDone:'已送出語音',micNo:'手機不給麥克風權限',needHttps:'鍵盤和語音要用 https 網址開這一頁',e_text_len:'最多 200 個字',e_voice_short:'太短了，按住久一點再說',e_bad_request:'送不出去',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
+  setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
+  step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
+  more:'更多',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
+  theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',tabTime:'時間',tabRemote:'遙控',
+  online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',remain:'剩 ',
+  min:'分',h:' 時 ',m:' 分',times:' 次',setOpen:'開放中',setShut:'關閉',
+  noTv:'連不到電視（手機的 Tailscale 有開嗎？）',pinFor:'第 2 次起延長要 PIN',settingsUntil:'設定開放到 ',
+  pinFormat:'PIN 要 6 位數字',pinMismatch:'兩次輸入不一樣',
+  '@locked':'鎖定畫面','@home':'首頁','@tv':'電視／HDMI',
+  extend:'+30 分鐘',extHint0:'這次還能延長 {n} 次，第 2 次起要 PIN',extHint1:'還能延長 {n} 次，要 PIN',extHintMax:'這次已延長 {n} 次（{m} 分鐘）',
+  extended:'已延長 30 分鐘',
+  e_not_open:'電視鎖定中，解鎖後才能延長',e_max_extend:'這次已經延長到上限了',
+  e_lockout:'輸入錯誤太多次，{n} 分鐘後再試',e_no_pin:'還沒設定 PIN',e_wrong_pin:'PIN 不對，還能試 {n} 次',
+  e_pin_set:'PIN 已經設定過了',e_pin_format:'PIN 要 6 位數字',e_pick_time:'先選看多久',e_unlock_first:'先解鎖電視，再開放設定',
+  power:'電源',up:'上',down:'下',left:'左',right:'右',back:'返回',home:'首頁',playPause:'播放／暫停',
+  volDown:'音量降低',mute:'靜音',volUp:'音量提高',apps:'App',editApps:'換 App',doneApps:'完成',pickSlot:'點要換的按鈕',
+  slot:'按鈕 ',slotOf:' 要開：',none:'（空）',appPin:'PIN',save:'儲存（要 PIN）',saved:'已儲存',
+  e_launch_fail:'開不了這個 App',e_remote_off:'遙控器還沒設定（見 pi-relay 說明）',
+  e_remote_locked:'電視鎖定中，解鎖後才能遙控',e_remote_fail:'按鍵沒送到（樹莓派連不到？）'}
+: {title:'Parental Lock',taipei:'Taipei',keyboard:'Keyboard',voice:'Tap to talk',typeHere:'Type, then Send',send:'Send',close:'Close',del:'Delete',enter:'Enter',sent:'Sent',listening:'Speak now; it sends when you stop',waitTv:'Waiting for the TV…',e_voice_over:'Voice ended',sending:'Sending to the TV…',voiceDone:'Voice sent',micNo:'The phone did not allow the microphone',needHttps:'Keyboard and voice need the https address',e_text_len:'200 characters at most',e_voice_short:'Too short: hold a little longer',e_bad_request:'Could not send',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
+  setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
+  step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
+  more:'More',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
+  theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',tabTime:'Time',tabRemote:'Remote',
+  online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',remain:'',
+  min:'min',h:' h ',m:' min',times:'',setOpen:'Open',setShut:'Closed',
+  noTv:'Cannot reach the TV (is Tailscale on?)',pinFor:'Extensions after the first need the PIN',settingsUntil:'Settings open until ',
+  pinFormat:'The PIN is 6 digits',pinMismatch:'The two PINs differ',
+  '@locked':'Lock screen','@home':'Home','@tv':'TV / HDMI',
+  extend:'+30 min',extHint0:'{n} extensions left; from the second on with the PIN',extHint1:'{n} left, with the PIN',extHintMax:'Extended {n} times ({m} min)',
+  extended:'30 min added',
+  e_not_open:'The TV is locked: unlock it to extend',e_max_extend:'Already extended as far as it goes',
+  e_lockout:'Too many wrong PINs, try again in {n} min',e_no_pin:'No PIN set yet',e_wrong_pin:'Wrong PIN, {n} tries left',
+  e_pin_set:'A PIN is already set',e_pin_format:'The PIN is 6 digits',e_pick_time:'Pick how long first',e_unlock_first:'Unlock the TV first',
+  power:'Power',up:'Up',down:'Down',left:'Left',right:'Right',back:'Back',home:'Home',playPause:'Play/pause',
+  volDown:'Volume down',mute:'Mute',volUp:'Volume up',apps:'Apps',editApps:'Change apps',doneApps:'Done',pickSlot:'Tap the button to change',
+  slot:'Button ',slotOf:' opens: ',none:'(empty)',appPin:'PIN',save:'Save (needs the PIN)',saved:'Saved',
+  e_launch_fail:'Cannot open this app',e_remote_off:'The remote is not set up (see pi-relay)',
+  e_remote_locked:'The TV is locked: unlock it to use the remote',e_remote_fail:'The key did not get through (relay unreachable?)'};
+
+var $ = function (i) { return document.getElementById(i); };
+document.documentElement.lang = ZH ? 'zh-Hant' : 'en'; document.title = T.title;
+document.querySelectorAll('[data-t]').forEach(function (e) { e.textContent = T[e.getAttribute('data-t')]; });
+document.querySelectorAll('[data-p]').forEach(function (e) { e.placeholder = T[e.getAttribute('data-p')]; });
+document.querySelectorAll('[data-a]').forEach(function (e) { e.setAttribute('aria-label', T[e.getAttribute('data-a')]); });
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
+function E(s) { return s.error ? (T['e_' + s.error] || s.error).replace('{n}', s.n) : ''; }
+function say(el, text, good) { el.className = good ? 'err good' : 'err'; el.textContent = text || ''; }
+function isPin(v) { return /^\d{6}$/.test(v); }
+function buzz() { if (navigator.vibrate) navigator.vibrate(10); }
+
+// Tabs, remembered on this phone.
+function tab(name) {
+  ['time', 'remote'].forEach(function (n) {
+    $('tab-' + n).hidden = n !== name; $('t-' + n).setAttribute('aria-selected', n === name ? 'true' : 'false');
+  });
+  store('tab', name);
+}
+$('t-time').onclick = function () { tab('time'); };
+$('t-remote').onclick = function () { tab('remote'); };
+tab(store('tab') === 'remote' ? 'remote' : 'time');
+
+// Light, dark, or the phone's choice.
+function theme(v) {
+  if (v === 'light' || v === 'dark') document.documentElement.setAttribute('data-theme', v);
+  else document.documentElement.removeAttribute('data-theme');
+  $('theme').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-v') === v ? 'true' : 'false'); });
+  store('theme', v);
+}
+$('theme').querySelectorAll('button').forEach(function (b) { b.onclick = function () { theme(b.getAttribute('data-v')); }; });
+theme(store('theme') || 'auto');
+
+var C = 603.19, mins = 0, last = null, lastOk = 0;
+var LOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6zm3 11a2 2 0 110-4 2 2 0 010 4z"/></svg>';
+var pin = $('pin'), go = $('go'), msg = $('msg');
+[30, 60, 90, 120].forEach(function (m) {
+  var b = document.createElement('button');
+  b.innerHTML = '<span class="num">' + m + '</span><small>' + T.min + '</small>';
+  b.setAttribute('aria-pressed', 'false');
+  b.onclick = function () {
+    mins = m;
+    document.querySelectorAll('#picks button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    upd();
+  };
+  $('picks').appendChild(b);
+});
+function upd() { go.disabled = !(mins && isPin(pin.value)); }
+pin.oninput = upd;
+function mmss(s) { var m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
+function hm(s) { var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? h + T.h + m + T.m : m + T.m; }
+function hhmm(d) { return (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes(); }
+function ring(color, frac) { $('arc').style.stroke = color; $('arc').style.strokeDashoffset = C * (1 - frac); }
+
+var shownBig = '';
+function big(html) { if (html !== shownBig) { $('big').innerHTML = html; shownBig = html; } }
+
+function draw() {
+  var s = last;
+  if (!s) {
+    $('dot').className = 'dot'; $('online').textContent = T.offline;
+    big('--:--'); $('label').textContent = T.unreachable; ring('var(--mute)', 0);
+    $('rstate').textContent = T.unreachable; $('rstate').className = 'rstate locked';
+    return;
+  }
+  $('dot').className = 'dot on'; $('online').textContent = T.online;
+  var left = Math.max(0, s.remainingSec - Math.floor((Date.now() - lastOk) / 1000));
+  var shut = s.locked || left <= 0;
+  if (shut) { big(LOCK_ICON); $('label').textContent = T.locked; ring('var(--red)', 1); }
+  else { big(mmss(left)); $('label').textContent = T.open; ring(left <= 600 ? 'var(--amber)' : 'var(--green)', s.durationSec ? Math.min(1, left / s.durationSec) : 1); }
+  $('showing').textContent = T[s.showing] || s.showing || '—';
+  $('watched').textContent = hm(s.watchedTodaySec);
+  $('unlocks').textContent = s.unlocksToday + T.times;
+  $('setstate').textContent = s.settingsOpen ? T.setOpen : T.setShut;
+  $('setup').hidden = s.hasPin;
+  // What the parent can do next depends on the state: unlock while locked, extend or lock while open.
+  $('whenLocked').hidden = !s.hasPin || !shut;
+  $('whenOpen').hidden = shut;
+  var used = s.extensions || 0, max = s.maxExtensions || 2;
+  $('ext').disabled = used >= max;
+  $('exthint').textContent = (used >= max ? T.extHintMax : used ? T.extHint1 : T.extHint0)
+    .replace('{n}', used >= max ? used : max - used).replace('{m}', used * 30);
+  $('pin2').hidden = used === 0 || used >= max;
+  // Remote tab.
+  $('noremote').hidden = !!s.remote; $('remote').hidden = !s.remote;
+  $('rstate').textContent = shut ? T.locked : T.remain + mmss(left) + (ZH ? '' : ' ' + T.open);
+  $('rstate').className = shut ? 'rstate locked' : left <= 600 ? 'rstate num warn' : 'rstate num';
+  $('tab-remote').classList.toggle('locked-remote', shut);
+  drawApps(s.apps || []);
+}
+// Taipei time, whatever the phone's own zone is.
+var clockFmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false});
+function clock() { $('clock').innerHTML = clockFmt.format(new Date()) + '<small>' + T.taipei + '</small>'; }
+
+function show(s) { last = s; lastOk = Date.now(); draw(); }
+function poll() {
+  fetch('/api/status', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(show)
+    .catch(function () { last = null; draw(); });
+}
+function api(path, body) {
+  var f = Object.keys(body || {}).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(body[k]); }).join('&');
+  return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: f})
+    .then(function (r) { return r.json(); }).then(function (s) { show(s); return s; });
+}
+
+go.onclick = function () {
+  say(msg);
+  api('/api/unlock', {minutes: mins, pin: pin.value}).then(function (s) {
+    say(msg, E(s)); if (!s.error) { pin.value = ''; upd(); }
+  }).catch(function () { say(msg, T.noTv); });
+};
+
+var msg3 = $('msg3');
+$('ext').onclick = function () {
+  say(msg3);
+  var needPin = last && last.extensions > 0, p2 = $('pin2');
+  if (needPin && !isPin(p2.value)) { say(msg3, T.pinFor); p2.focus(); return; }
+  api('/api/extend', needPin ? {pin: p2.value} : {}).then(function (s) {
+    if (s.error) { say(msg3, E(s)); return; }
+    p2.value = ''; say(msg3, T.extended, true);
+  }).catch(function () { say(msg3, T.noTv); });
+};
+
+// Lock now: hold for three seconds, so a stray tap does nothing.
+(function () {
+  var b = $('lock'), timer = 0;
+  function cancel() { clearTimeout(timer); timer = 0; b.classList.remove('going'); }
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); say(msg3); b.classList.add('going');
+    timer = setTimeout(function () {
+      timer = 0; b.classList.remove('going'); buzz();
+      api('/api/lock', {}).then(function () { say(msg3, T.locking, true); }).catch(function () { say(msg3, T.noTv); });
+    }, 3000);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, cancel); });
+  b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+})();
+
+$('set').onclick = function () {
+  var m2 = $('msg2'), p3 = $('pin3'); say(m2);
+  if (!isPin(p3.value)) { say(m2, T.pinFormat); return; }
+  api('/api/settings', {pin: p3.value}).then(function (s) {
+    if (s.error) { say(m2, E(s)); return; }
+    p3.value = ''; say(m2, T.settingsUntil + hhmm(new Date(Date.now() + s.settingsLeftSec * 1000)), true);
+  }).catch(function () { say(m2, T.noTv); });
+};
+
+$('savepin').onclick = function () {
+  var a = $('newpin').value, b = $('newpin2').value, sm = $('setmsg');
+  if (!isPin(a)) { say(sm, T.pinFormat); return; }
+  if (a !== b) { say(sm, T.pinMismatch); return; }
+  api('/api/setpin', {pin: a}).then(function (s) { say(sm, E(s)); }).catch(function () { say(sm, T.noTv); });
+};
+
+var msg4 = $('msg4');
+function sendKey(k) {
+  return api('/api/key', {key: k}).then(function (s) { say(msg4, E(s)); }).catch(function () { say(msg4, T.noTv); });
+}
+// Directions and volume repeat while held (fast-forwarding, scrolling a list): once at once, then
+// every 590 ms (1.7 a second, tuned on Netflix seeking) after 500 ms. A repeat waits for the previous key to arrive, so nothing piles up
+// and the TV stops moving as soon as the finger lifts.
+var REPEAT = {DPAD_UP: 1, DPAD_DOWN: 1, DPAD_LEFT: 1, DPAD_RIGHT: 1, VOLUME_UP: 1, VOLUME_DOWN: 1};
+document.querySelectorAll('[data-k]').forEach(function (b) {
+  var k = b.getAttribute('data-k');
+  if (!REPEAT[k]) {
+    b.onclick = function () { buzz(); sendKey(k); };
+    return;
+  }
+  var held = false, busy = false, timer = null;
+  function tick() {
+    if (!held) return;
+    if (!busy) { busy = true; sendKey(k).then(function () { busy = false; }); }
+    timer = setTimeout(tick, 590);
+  }
+  function release() { held = false; clearTimeout(timer); }
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); held = true; buzz();
+    busy = true; sendKey(k).then(function () { busy = false; });
+    timer = setTimeout(tick, 590);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (t) { b.addEventListener(t, release); });
+  b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+});
+
+// App buttons: rebuilt only when the slots change, so a tap is never lost to the 1 s redraw.
+var appsSeen = '', editMode = false, editSlot = -1, appList = null;
+function drawApps(a) {
+  var j = JSON.stringify(a); if (j === appsSeen) return; appsSeen = j;
+  var box = $('apps'); box.innerHTML = '';
+  a.forEach(function (x, i) {
+    var b = document.createElement('button');
+    if (x) b.textContent = x.label; else { b.className = 'empty'; b.textContent = '+'; }
+    b.onclick = function () { if (editMode || !x) openEdit(i); else launch(i); };
+    box.appendChild(b);
+  });
+  markSlot();
+}
+// Editing: the slot is the button tapped, never a separate list, so the wrong slot cannot be saved.
+function markSlot() { var bs = $('apps').children; for (var k = 0; k < bs.length; k++) bs[k].classList.toggle('picked', editMode && k === editSlot); }
+function setEdit(on) {
+  editMode = on; editSlot = -1; $('apps').classList.toggle('editing', on);
+  $('appedit').textContent = on ? T.doneApps : T.editApps; $('appbox').hidden = true;
+  say(msg4, on ? T.pickSlot : '', true); markSlot();
+}
+function launch(i) {
+  buzz();
+  api('/api/launch', {slot: i}).then(function (s) { say(msg4, E(s)); }).catch(function () { say(msg4, T.noTv); });
+}
+function openEdit(i) {
+  if (!editMode) setEdit(true);
+  editSlot = i; markSlot(); say(msg4);
+  $('appslot').textContent = T.slot + (i + 1) + T.slotOf; $('appbox').hidden = false;
+  if (appList) return pickCurrent();
+  fetch('/api/apps').then(function (r) { return r.json(); }).then(function (d) {
+    appList = d.apps; var p = $('apppick'), o = document.createElement('option');
+    o.value = ''; o.textContent = T.none; p.appendChild(o);
+    appList.forEach(function (x) { var o = document.createElement('option'); o.value = x.pkg; o.textContent = x.label; p.appendChild(o); });
+    pickCurrent();
+  }).catch(function () { say(msg4, T.noTv); });
+}
+function pickCurrent() { var a = last && last.apps && last.apps[editSlot]; $('apppick').value = a ? a.pkg : ''; }
+$('appedit').onclick = function () { setEdit(!editMode); };
+$('appsave').onclick = function () {
+  var ap = $('apppin'); say(msg4); if (editSlot < 0) return;
+  if (!isPin(ap.value)) { say(msg4, T.pinFormat); return; }
+  api('/api/shortcut', {slot: editSlot, pkg: $('apppick').value, pin: ap.value}).then(function (s) {
+    if (s.error) { say(msg4, E(s)); return; }
+    ap.value = ''; setEdit(false); say(msg4, T.saved, true);
+  }).catch(function () { say(msg4, T.noTv); });
+};
+
+clock(); // Keyboard and voice go to the relay through tailscale serve (/pi/...), so they need the https address.
+var viaPi = location.protocol === 'https:';
+function pi(what, body, type) {
+  return fetch('/pi/' + what, {method: 'POST', headers: {'Content-Type': type}, body: body})
+    .then(function (r) { return r.json(); });
+}
+var kbmsg = $('kbmsg');
+$('kbbtn').onclick = function () {
+  var kb = $('kb'); kb.hidden = !kb.hidden; say(kbmsg, viaPi ? '' : T.needHttps);
+  if (!kb.hidden) $('kbtext').focus();
+};
+$('kbclose').onclick = function () { $('kb').hidden = true; };
+$('kbform').onsubmit = function (e) {
+  e.preventDefault();
+  var t = $('kbtext').value.trim(); if (!t) return;
+  if (!viaPi) { say(kbmsg, T.needHttps); return; }
+  pi('text', t, 'text/plain; charset=utf-8').then(function (s) {
+    if (s.error) { say(kbmsg, E(s)); return; }
+    $('kbtext').value = ''; say(kbmsg, T.sent, true);
+  }).catch(function () { say(kbmsg, T.noTv); });
+};
+[['kbdel', 'DEL'], ['kbenter', 'ENTER']].forEach(function (k) {
+  $(k[0]).onclick = function () {
+    buzz(); if (!viaPi) { say(kbmsg, T.needHttps); return; }
+    pi('key', k[1], 'text/plain').then(function (s) { say(kbmsg, E(s)); }).catch(function () { say(kbmsg, T.noTv); });
+  };
+});
+
+// Voice, like the real remote: tap the mic, the TV opens its voice search, then speak. The phone sends
+// what it hears as 8 kHz 16-bit mono in 20 KB pieces (1.28 s; smaller ones reach
+// the TV but are not recognised) while you talk, until the TV says it heard
+// the end. A second tap, 4 s of quiet after speaking, or 10 s also stop it.
+(function () {
+  var b = $('mic'), rec = null, PIECE = 10240, QUIET = 0.02;
+  function stop() {
+    if (!rec) return;
+    var r = rec; rec = null; b.classList.remove('on'); clearTimeout(r.timer);
+    try { r.node.disconnect(); r.src.disconnect(); } catch (e) {}
+    if (r.stream) r.stream.getTracks().forEach(function (t) { t.stop(); });
+    r.ctx.close();
+    r.chain = r.chain.then(function () {
+      if (r.ready && r.n) { r.buf.fill(0, r.n); return pi('vchunk', r.buf.slice(0).buffer, 'application/octet-stream'); }   // padded to a whole piece
+    }).then(function () { if (r.ready) return pi('vend', '', 'text/plain'); })
+      .then(function () { if (r.ready) say(msg4, T.voiceDone, true); }).catch(function () {});
+  }
+  function piece(r) {
+    // Pieces go one after another, so the TV hears them in order.
+    var data = r.buf.slice(0).buffer; r.n = 0;
+    r.chain = r.chain.then(function () { return pi('vchunk', data, 'application/octet-stream'); })
+      .then(function (s) {
+        // voice_over: the TV heard the end and is searching.
+        if (s.error && rec === r) { if (s.error === 'voice_over') say(msg4, T.voiceDone, true); else say(msg4, E(s)); stop(); }
+      });
+  }
+  b.addEventListener('click', function () {
+    if (rec) { stop(); return; }
+    if (!viaPi) { say(msg4, T.needHttps); return; }
+    if (!navigator.mediaDevices) { say(msg4, T.micNo); return; }
+    // Made inside the tap, or some phones keep it paused and record nothing.
+    var Ctx = window.AudioContext || window.webkitAudioContext, ctx = new Ctx(); ctx.resume();
+    var r = rec = {ctx: ctx, buf: new Int16Array(PIECE), n: 0, sum: 0, cnt: 0, t: 0, ratio: ctx.sampleRate / 8000,
+                   ready: false, spoke: false, quietSince: 0, chain: Promise.resolve(),
+                   timer: setTimeout(stop, 10000)};
+    b.classList.add('on'); buzz(); say(msg4, T.waitTv, true);
+    navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true}})
+      .then(function (stream) {
+        if (rec !== r) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+        r.stream = stream;
+        r.src = ctx.createMediaStreamSource(stream); r.node = ctx.createScriptProcessor(4096, 1, 1);
+        r.node.onaudioprocess = function (ev) {
+          if (rec !== r || !r.ready) return;   // nothing goes out before the TV listens
+          var x = ev.inputBuffer.getChannelData(0), loud = 0;
+          for (var i = 0; i < x.length; i++) {
+            loud = Math.max(loud, Math.abs(x[i]));
+            r.sum += x[i]; r.cnt++; r.t++;
+            if (r.t >= r.ratio) {
+              r.buf[r.n++] = Math.max(-1, Math.min(1, r.sum / r.cnt)) * 32767;
+              r.t -= r.ratio; r.sum = 0; r.cnt = 0;
+              if (r.n === PIECE) piece(r);
+            }
+          }
+          var now = Date.now();
+          if (loud > QUIET) { r.spoke = true; r.quietSince = now; }
+          else if (r.spoke && now - r.quietSince > 4000) stop();
+        };
+        r.src.connect(r.node); r.node.connect(ctx.destination);
+        return pi('vstart', '', 'text/plain').then(function (s) {
+          if (rec !== r) { if (!s.error) pi('vend', '', 'text/plain'); return; }
+          if (s.error) { say(msg4, E(s)); stop(); return; }
+          r.ready = true; r.timer && clearTimeout(r.timer); r.timer = setTimeout(stop, 10000);
+          say(msg4, T.listening, true);
+        });
+      }).catch(function () { if (rec === r) { say(msg4, r.stream ? T.noTv : T.micNo); stop(); } });
+  });
+})();
+
+poll(); setInterval(poll, 5000); setInterval(function () { draw(); clock(); }, 1000);
+</script>
+</body></html>

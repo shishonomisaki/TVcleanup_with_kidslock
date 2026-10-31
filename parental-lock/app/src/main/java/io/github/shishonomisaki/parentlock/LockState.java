@@ -111,10 +111,10 @@ final class LockState {
                 .putInt("unlocks", prefs.getInt("unlocks", 0) + 1).apply();
     }
 
-    // "+30 min" on an open window: twice per unlock at most, the second time with the PIN (WebServer).
+    // "+30 min" on an open window: three times per unlock at most, from the second time on with the PIN (WebServer).
 
     static final int EXTEND_MINUTES = 30;
-    static final int MAX_EXTENSIONS = 2;
+    static final int MAX_EXTENSIONS = 3;
 
     synchronized int extensions() {
         return prefs.getInt("extensions", 0);
