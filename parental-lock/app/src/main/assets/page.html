@@ -10,11 +10,11 @@ try { var th = localStorage.getItem('theme'); if (th === 'light' || th === 'dark
 <style>
 /* Living room at night: night blue, a lamp's amber for time to watch, a signal red for the lock. */
 :root{--bg:#EDEFF6;--card:#FFFFFF;--raise:#E3E6F1;--fg:#1A1E3A;--mute:#5D6378;--line:#D5D9E8;
-  --amber:#F2B84B;--amber-ink:#8A5A00;--on-amber:#1A1E3A;--red:#C9343A;--track:#E3E6F1;--ok:#1A1E3A;--on-ok:#F2B84B}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1A1E3A;--card:#242950;--raise:#2E3462;
+  --green:#2B8A3E;--amber:#F2B84B;--amber-ink:#8A5A00;--on-amber:#1A1E3A;--red:#C9343A;--track:#E3E6F1;--ok:#1A1E3A;--on-ok:#F2B84B}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--green:#46C26A;--bg:#1A1E3A;--card:#242950;--raise:#2E3462;
   --fg:#E9EBF5;--mute:#8A90A8;--line:#363C6E;--amber:#F2B84B;--amber-ink:#F2B84B;--on-amber:#1A1E3A;--red:#E5484D;
   --track:#2E3462;--ok:#F2B84B;--on-ok:#1A1E3A}}
-:root[data-theme="dark"]{--bg:#1A1E3A;--card:#242950;--raise:#2E3462;--fg:#E9EBF5;--mute:#8A90A8;--line:#363C6E;
+:root[data-theme="dark"]{--green:#46C26A;--bg:#1A1E3A;--card:#242950;--raise:#2E3462;--fg:#E9EBF5;--mute:#8A90A8;--line:#363C6E;
   --amber:#F2B84B;--amber-ink:#F2B84B;--on-amber:#1A1E3A;--red:#E5484D;--track:#2E3462;--ok:#F2B84B;--on-ok:#1A1E3A}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -25,7 +25,9 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px;min
 h1{font-size:18px;margin:0;font-weight:700}
 .conn{font-size:13px;color:var(--mute);display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--mute)}
-.dot.on{background:var(--amber)}
+.dot.on{background:var(--green)}
+.clock{font-size:22px;font-weight:700;line-height:1}
+.clock small{font-size:11px;font-weight:400;color:var(--mute);margin-left:4px}
 section[hidden]{display:none}
 .card{background:var(--card);border-radius:20px;padding:16px;margin-top:12px}
 .lbl{font-size:14px;color:var(--mute);margin:0 0 10px}
@@ -63,7 +65,7 @@ input.pin::placeholder{letter-spacing:normal;font-size:16px}
 .picks small{display:block;font-size:11px;font-weight:400;opacity:.75}
 .hold{position:relative;overflow:hidden;width:100%;margin-top:10px;background:transparent;border:2px solid var(--red);color:var(--red);font-weight:700}
 .hold i{position:absolute;inset:0;background:var(--red);transform:scaleX(0);transform-origin:left;opacity:.25}
-.hold.going i{transform:scaleX(1);transition:transform 1s linear}
+.hold.going i{transform:scaleX(1);transition:transform 3s linear}
 details{margin-top:12px}
 summary{cursor:pointer;color:var(--mute);font-size:14px;padding:8px 0;list-style:none}
 summary::-webkit-details-marker{display:none}
@@ -113,7 +115,7 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 @media (prefers-reduced-motion:reduce){#arc,.hold.going i{transition:none}}
 </style></head><body>
 <main>
-<header><h1 data-t="title"></h1><span class="conn"><span class="dot" id="dot"></span><span id="online"></span></span></header>
+<header><div><h1 data-t="title"></h1><span class="conn"><span class="dot" id="dot"></span><span id="online"></span></span></div><div class="clock num" id="clock" aria-live="off"></div></header>
 
 <section id="tab-time" role="tabpanel">
   <div class="card" id="setup" hidden><p class="lbl" data-t="setupTitle"></p>
@@ -199,19 +201,19 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 
 <script>
 var ZH = /^zh/i.test(navigator.language || '');
-var T = ZH ? {title:'電視家長鎖',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
+var T = ZH ? {title:'電視家長鎖',taipei:'台北',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
   setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
-  step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 1 秒立刻鎖定',locking:'已鎖定',
+  step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
   more:'更多',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
   theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',tabTime:'時間',tabRemote:'遙控',
   online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',left:'剩 ',
   min:'分',h:' 時 ',m:' 分',times:' 次',setOpen:'開放中',setShut:'關閉',
-  noTv:'連不到電視（手機的 Tailscale 有開嗎？）',pinFor:'第 2 次延長要 PIN',settingsUntil:'設定開放到 ',
+  noTv:'連不到電視（手機的 Tailscale 有開嗎？）',pinFor:'第 2 次起延長要 PIN',settingsUntil:'設定開放到 ',
   pinFormat:'PIN 要 6 位數字',pinMismatch:'兩次輸入不一樣',
   '@locked':'鎖定畫面','@home':'首頁','@tv':'電視／HDMI',
-  extend:'+30 分鐘',extHint0:'這次還能延長 2 次，第 2 次要 PIN',extHint1:'還能延長 1 次，要 PIN',extHintMax:'這次已延長 2 次（60 分鐘）',
+  extend:'+30 分鐘',extHint0:'這次還能延長 {n} 次，第 2 次起要 PIN',extHint1:'還能延長 {n} 次，要 PIN',extHintMax:'這次已延長 {n} 次（{m} 分鐘）',
   extended:'已延長 30 分鐘',
-  e_not_open:'電視鎖定中，解鎖後才能延長',e_max_extend:'這次已經延長 2 次了',
+  e_not_open:'電視鎖定中，解鎖後才能延長',e_max_extend:'這次已經延長到上限了',
   e_lockout:'輸入錯誤太多次，{n} 分鐘後再試',e_no_pin:'還沒設定 PIN',e_wrong_pin:'PIN 不對，還能試 {n} 次',
   e_pin_set:'PIN 已經設定過了',e_pin_format:'PIN 要 6 位數字',e_pick_time:'先選看多久',e_unlock_first:'先解鎖電視，再開放設定',
   power:'電源',up:'上',down:'下',left:'左',right:'右',back:'返回',home:'首頁',playPause:'播放／暫停',
@@ -219,19 +221,19 @@ var T = ZH ? {title:'電視家長鎖',watching:'正在看：',watchedToday:'今�
   slot:'按鈕 ',slotOf:' 要開：',none:'（空）',appPin:'PIN',save:'儲存（要 PIN）',saved:'已儲存',
   e_launch_fail:'開不了這個 App',e_remote_off:'遙控器還沒設定（見 pi-relay 說明）',
   e_remote_locked:'電視鎖定中，解鎖後才能遙控',e_remote_fail:'按鍵沒送到（樹莓派連不到？）'}
-: {title:'Parental Lock',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
+: {title:'Parental Lock',taipei:'Taipei',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
   setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
-  step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 1 s to lock now',locking:'Locked',
+  step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
   more:'More',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
   theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',tabTime:'Time',tabRemote:'Remote',
   online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',left:'',
   min:'min',h:' h ',m:' min',times:'',setOpen:'Open',setShut:'Closed',
-  noTv:'Cannot reach the TV (is Tailscale on?)',pinFor:'The second extension needs the PIN',settingsUntil:'Settings open until ',
+  noTv:'Cannot reach the TV (is Tailscale on?)',pinFor:'Extensions after the first need the PIN',settingsUntil:'Settings open until ',
   pinFormat:'The PIN is 6 digits',pinMismatch:'The two PINs differ',
   '@locked':'Lock screen','@home':'Home','@tv':'TV / HDMI',
-  extend:'+30 min',extHint0:'Two extensions left; the second needs the PIN',extHint1:'One extension left, with the PIN',extHintMax:'Extended twice already (60 min)',
+  extend:'+30 min',extHint0:'{n} extensions left; from the second on with the PIN',extHint1:'{n} left, with the PIN',extHintMax:'Extended {n} times ({m} min)',
   extended:'30 min added',
-  e_not_open:'The TV is locked: unlock it to extend',e_max_extend:'Already extended twice',
+  e_not_open:'The TV is locked: unlock it to extend',e_max_extend:'Already extended as far as it goes',
   e_lockout:'Too many wrong PINs, try again in {n} min',e_no_pin:'No PIN set yet',e_wrong_pin:'Wrong PIN, {n} tries left',
   e_pin_set:'A PIN is already set',e_pin_format:'The PIN is 6 digits',e_pick_time:'Pick how long first',e_unlock_first:'Unlock the TV first',
   power:'Power',up:'Up',down:'Down',left:'Left',right:'Right',back:'Back',home:'Home',playPause:'Play/pause',
@@ -308,7 +310,7 @@ function draw() {
   var left = Math.max(0, s.remainingSec - Math.floor((Date.now() - lastOk) / 1000));
   var shut = s.locked || left <= 0;
   if (shut) { big(LOCK_ICON); $('label').textContent = T.locked; ring('var(--red)', 1); }
-  else { big(mmss(left)); $('label').textContent = T.open; ring('var(--amber)', s.durationSec ? Math.min(1, left / s.durationSec) : 1); }
+  else { big(mmss(left)); $('label').textContent = T.open; ring(left <= 600 ? 'var(--amber)' : 'var(--green)', s.durationSec ? Math.min(1, left / s.durationSec) : 1); }
   $('showing').textContent = T[s.showing] || s.showing || '—';
   $('watched').textContent = hm(s.watchedTodaySec);
   $('unlocks').textContent = s.unlocksToday + T.times;
@@ -319,7 +321,8 @@ function draw() {
   $('whenOpen').hidden = shut;
   var used = s.extensions || 0, max = s.maxExtensions || 2;
   $('ext').disabled = used >= max;
-  $('exthint').textContent = used >= max ? T.extHintMax : used ? T.extHint1 : T.extHint0;
+  $('exthint').textContent = (used >= max ? T.extHintMax : used ? T.extHint1 : T.extHint0)
+    .replace('{n}', used >= max ? used : max - used).replace('{m}', used * 30);
   $('pin2').hidden = used === 0 || used >= max;
   // Remote tab.
   $('noremote').hidden = !!s.remote; $('remote').hidden = !s.remote;
@@ -328,6 +331,10 @@ function draw() {
   $('tab-remote').classList.toggle('locked-remote', shut);
   drawApps(s.apps || []);
 }
+// Taipei time, whatever the phone's own zone is.
+var clockFmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false});
+function clock() { $('clock').innerHTML = clockFmt.format(new Date()) + '<small>' + T.taipei + '</small>'; }
+
 function show(s) { last = s; lastOk = Date.now(); draw(); }
 function poll() {
   fetch('/api/status', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(show)
@@ -357,7 +364,7 @@ $('ext').onclick = function () {
   }).catch(function () { say(msg3, T.noTv); });
 };
 
-// Lock now: hold for a second, so a stray tap does nothing.
+// Lock now: hold for three seconds, so a stray tap does nothing.
 (function () {
   var b = $('lock'), timer = 0;
   function cancel() { clearTimeout(timer); timer = 0; b.classList.remove('going'); }
@@ -366,7 +373,7 @@ $('ext').onclick = function () {
     timer = setTimeout(function () {
       timer = 0; b.classList.remove('going'); buzz();
       api('/api/lock', {}).then(function () { say(msg3, T.locking, true); }).catch(function () { say(msg3, T.noTv); });
-    }, 1000);
+    }, 3000);
   });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, cancel); });
   b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -444,6 +451,6 @@ $('appsave').onclick = function () {
   }).catch(function () { say(msg4, T.noTv); });
 };
 
-poll(); setInterval(poll, 5000); setInterval(draw, 1000);
+clock(); poll(); setInterval(poll, 5000); setInterval(function () { draw(); clock(); }, 1000);
 </script>
 </body></html>

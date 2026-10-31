@@ -174,7 +174,7 @@ final class WebServer {
         }
         // Errors go out as codes (plus a number in "n"); the page words them in the phone's language.
         int[] n = new int[1];
-        // +30 min: only on an open window, twice per unlock; the first needs no PIN, the second does.
+        // +30 min: only on an open window, three times per unlock; the first needs no PIN, the others do.
         if (path.equals("/api/extend")) {
             if (state.locked()) {
                 sendJson(out, 409, status().put("error", "not_open"));

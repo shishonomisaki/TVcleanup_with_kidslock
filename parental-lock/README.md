@@ -16,8 +16,8 @@ phone is set to Chinese.
 | **Status** | Online or offline, a ring counting down the time left (green) or the lock (red), the app on screen, and today's viewing time and unlocks. |
 | **1. Pick the viewing time** | 30, 60, 90 or 120 minutes. Unlock stays greyed out until a time is picked and the PIN is six digits. |
 | **2. Enter the PIN** | Chosen on the phone on the first visit, so it never passes through adb. Five wrong PINs lock the page for ten minutes. |
-| **+30 min** | Extends an open window, twice per unlock at most (60 minutes): the first time with no PIN, the second with it. Greyed out while the TV is locked. |
-| **Lock now** | No PIN: a second press within four seconds confirms. |
+| **+30 min** | Extends an open window, three times per unlock at most (90 minutes): the first time with no PIN, after that with it. Greyed out while the TV is locked. |
+| **Lock now** | No PIN: hold the button for three seconds. |
 | **Open Settings 5 min** | Needs the PIN and an unlocked TV. Settings is otherwise closed, so the lock can't be switched off from the TV. Five minutes later Settings closes, even if someone is still in it. |
 
 | On the TV | |
