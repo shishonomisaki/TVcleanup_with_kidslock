@@ -1,0 +1,15 @@
+# Never commit: TV backups and screenshots (device identifiers), ADB keys, relay secrets
+backup*/
+shots/
+work/
+adbkey*
+**/token
+*.pem
+pair-code
+*.log
+
+# Builds
+build/
+.gradle/
+local.properties
+*.apk

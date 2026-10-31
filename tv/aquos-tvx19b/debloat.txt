@@ -1,0 +1,26 @@
+# SHARP AQUOS (reported as AQUOS-TVX19B; SHARP/tclilux/gangnam), Taiwan
+# Android TV 11, firmware RTOB.250807.002 (latest as of 2026-10-30), MediaTek
+# Stock launcher: com.google.android.tvlauncher, replaced by the cleanyourtv launcher (com.gathin.tvhome).
+#
+# Apply:   TV_HOST=<tv ip> upstream/cleanyourtv/tools/disable.sh tv/aquos-tvx19b/debloat.txt
+# Undo:    TV_HOST=<tv ip> upstream/cleanyourtv/tools/restore.sh tv/aquos-tvx19b/debloat.txt com.google.android.tvlauncher
+# Everything is DISABLED for user 0, never uninstalled. Comment out any line you want to keep.
+#
+# This is the list that is disabled on the TV now (pm list packages -d after a reboot). The full backup
+# (package lists, getprop, settings) stays local in backup-aquos-tvx19b/, never in git.
+
+jp.co.sharp.av.android.epopdemo
+fusion.android.tv.demo
+tv.anoki.acr.controller
+com.sharplabs.dmt.aas.analyticsservice
+com.cltv.fast
+azan.android.av.sharp.co.jp
+com.google.android.partnersetup
+com.google.android.feedback
+com.google.android.play.games
+com.google.android.youtube.tvmusic
+com.amazon.amazonvideo.livingroom
+com.google.android.marvin.talkback
+
+# Stock launcher: disabled only after the new launcher is confirmed as Home
+com.google.android.tvlauncher
