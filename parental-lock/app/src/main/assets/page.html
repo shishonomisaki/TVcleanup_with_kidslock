@@ -103,6 +103,7 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .pw svg{width:20px;height:20px;fill:currentColor}
 /* The D-pad is a ring, like the countdown: four arcs and OK in the middle. */
 .dpad{position:relative;width:clamp(232px,calc(100dvh - 500px),284px);max-width:100%;aspect-ratio:1;margin:6px auto 2px;border-radius:50%;background:var(--raise);overflow:hidden}
+.dpad button,.keys button{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .dpad button{position:absolute;background:transparent;border-radius:0;padding:0;display:flex;align-items:center;justify-content:center}
 .dpad button svg{width:30px;height:30px;fill:var(--fg)}
 /* Each direction owns a whole quarter of the ring, so there is no dead spot between them. */
@@ -432,12 +433,33 @@ $('savepin').onclick = function () {
 };
 
 var msg4 = $('msg4');
+function sendKey(k) {
+  return api('/api/key', {key: k}).then(function (s) { say(msg4, E(s)); }).catch(function () { say(msg4, T.noTv); });
+}
+// Directions and volume repeat while held (fast-forwarding, scrolling a list): once at once, then
+// every 590 ms (1.7 a second, tuned on Netflix seeking) after 500 ms. A repeat waits for the previous key to arrive, so nothing piles up
+// and the TV stops moving as soon as the finger lifts.
+var REPEAT = {DPAD_UP: 1, DPAD_DOWN: 1, DPAD_LEFT: 1, DPAD_RIGHT: 1, VOLUME_UP: 1, VOLUME_DOWN: 1};
 document.querySelectorAll('[data-k]').forEach(function (b) {
-  b.onclick = function () {
-    buzz();
-    api('/api/key', {key: b.getAttribute('data-k')}).then(function (s) { say(msg4, E(s)); })
-      .catch(function () { say(msg4, T.noTv); });
-  };
+  var k = b.getAttribute('data-k');
+  if (!REPEAT[k]) {
+    b.onclick = function () { buzz(); sendKey(k); };
+    return;
+  }
+  var held = false, busy = false, timer = null;
+  function tick() {
+    if (!held) return;
+    if (!busy) { busy = true; sendKey(k).then(function () { busy = false; }); }
+    timer = setTimeout(tick, 590);
+  }
+  function release() { held = false; clearTimeout(timer); }
+  b.addEventListener('pointerdown', function (e) {
+    e.preventDefault(); held = true; buzz();
+    busy = true; sendKey(k).then(function () { busy = false; });
+    timer = setTimeout(tick, 590);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (t) { b.addEventListener(t, release); });
+  b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 });
 
 // App buttons: rebuilt only when the slots change, so a tap is never lost to the 1 s redraw.
