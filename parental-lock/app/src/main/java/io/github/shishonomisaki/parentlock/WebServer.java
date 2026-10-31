@@ -109,7 +109,7 @@ final class WebServer {
 
     private void route(String method, String path, Map<String, String> form, OutputStream out) throws Exception {
         if (method.equals("GET") && (path.equals("/") || path.startsWith("/?"))) {
-            send(out, 200, "text/html; charset=utf-8", Page.HTML);
+            send(out, 200, "text/html; charset=utf-8", Page.html(context));
             return;
         }
         if (method.equals("GET") && path.equals("/api/status")) {
