@@ -17,6 +17,8 @@ import android.content.Intent;
  *   am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver -a RESET_VOLUMES   (forget every app's level)
  *   am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver -a PORT            (prints the phone page's port)
  *   am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver -a SET_PORT --ei port <1024-65535>
+ *   am broadcast -n io.github.shishonomisaki.parentlock/.AdminReceiver -a SET_RELAY --es host <relay's LAN address>
+ *       --ei port <port> --es token <token>    the remote on the phone page (RemoteRelay); no host removes it
  */
 public class AdminReceiver extends BroadcastReceiver {
     @Override
@@ -46,6 +48,16 @@ public class AdminReceiver extends BroadcastReceiver {
                 GuardService.rebindWeb();
             }
             setResultData(String.valueOf(state.port()));
+        } else if ("SET_RELAY".equals(action)) {
+            String host = intent.getStringExtra("host");
+            int port = intent.getIntExtra("port", 0);
+            String token = intent.getStringExtra("token");
+            if (host == null || host.isEmpty()) {
+                state.setRelay(null, 0, null);
+            } else if (port >= 1 && port <= 65535 && token != null && !token.isEmpty()) {
+                state.setRelay(host, port, token);
+            }
+            setResultData(state.relayHost() == null ? "off" : "on");
         } else if ("PORT".equals(action)) {
             setResultData(String.valueOf(state.port()));
         } else if ("LOCK".equals(action)) {

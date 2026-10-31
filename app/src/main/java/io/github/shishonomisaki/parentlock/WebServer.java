@@ -116,6 +116,10 @@ final class WebServer {
             sendJson(out, 200, status());
             return;
         }
+        if (method.equals("GET") && path.equals("/api/apps")) {
+            sendJson(out, 200, new JSONObject().put("apps", AppShortcuts.launchable(context)));
+            return;
+        }
         if (!method.equals("POST")) {
             send(out, 404, "text/plain", "not found");
             return;
@@ -139,6 +143,33 @@ final class WebServer {
             state.lock();
             GuardService.refresh();
             sendJson(out, 200, status());
+            return;
+        }
+        // Remote keys: no PIN, like the TV's own remote, but only while the TV is unlocked, so they never get
+        // past the lock screen. Power is the exception: switching a locked TV on or off only shows or hides the
+        // lock screen.
+        if (path.equals("/api/key")) {
+            if (state.relayHost() == null) {
+                sendJson(out, 409, status().put("error", "remote_off"));
+            } else if (state.locked() && !"POWER".equals(form.get("key"))) {
+                sendJson(out, 409, status().put("error", "remote_locked"));
+            } else if (!RemoteRelay.send(state, form.get("key"))) {
+                sendJson(out, 502, status().put("error", "remote_fail"));
+            } else {
+                sendJson(out, 200, status());
+            }
+            return;
+        }
+        // App buttons open their app on an unlocked TV only, like the remote keys.
+        if (path.equals("/api/launch")) {
+            int slot = slot(form.get("slot"));
+            if (state.locked()) {
+                sendJson(out, 409, status().put("error", "remote_locked"));
+            } else if (slot < 0 || !AppShortcuts.launch(context, state, slot)) {
+                sendJson(out, 400, status().put("error", "launch_fail"));
+            } else {
+                sendJson(out, 200, status());
+            }
             return;
         }
         // Errors go out as codes (plus a number in "n"); the page words them in the phone's language.
@@ -189,6 +220,18 @@ final class WebServer {
                 }
                 state.openSettings(5);
                 break;
+            case "/api/shortcut": {
+                // Choosing what an app button opens is a change, so it takes the PIN; "" empties the slot.
+                int slot = slot(form.get("slot"));
+                String pkg = form.get("pkg");
+                if (slot < 0 || pkg == null || (!pkg.isEmpty() && !AppShortcuts.installed(context, pkg))) {
+                    sendJson(out, 400, status().put("error", "launch_fail"));
+                    return;
+                }
+                state.setShortcut(slot, pkg);
+                sendJson(out, 200, status());
+                return;
+            }
             default:
                 send(out, 404, "text/plain", "not found");
                 return;
@@ -209,7 +252,18 @@ final class WebServer {
                 .put("durationSec", state.durationMs() / 1000)
                 .put("watchedTodaySec", state.watchedTodayMs() / 1000)
                 .put("unlocksToday", state.unlocksToday())
-                .put("showing", GuardService.nowShowing());
+                .put("showing", GuardService.nowShowing())
+                .put("remote", state.relayHost() != null)
+                .put("apps", AppShortcuts.slots(context, state));
+    }
+
+    private static int slot(String s) {
+        try {
+            int i = Integer.parseInt(s);
+            return i >= 0 && i < AppShortcuts.SLOTS ? i : -1;
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     private static Map<String, String> parse(String body) throws Exception {

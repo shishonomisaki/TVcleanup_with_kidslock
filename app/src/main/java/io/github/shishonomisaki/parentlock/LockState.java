@@ -43,6 +43,39 @@ final class LockState {
         prefs.edit().putInt("port", port).apply();
     }
 
+    // The remote relay (RemoteRelay): unset until SET_RELAY over adb, and then the phone page shows the remote.
+
+    synchronized String relayHost() {
+        return prefs.getString("relayHost", null);
+    }
+
+    synchronized int relayPort() {
+        return prefs.getInt("relayPort", 0);
+    }
+
+    synchronized String relayToken() {
+        return prefs.getString("relayToken", "");
+    }
+
+    /** host null clears it. */
+    synchronized void setRelay(String host, int port, String token) {
+        if (host == null) {
+            prefs.edit().remove("relayHost").remove("relayPort").remove("relayToken").apply();
+        } else {
+            prefs.edit().putString("relayHost", host).putInt("relayPort", port).putString("relayToken", token).apply();
+        }
+    }
+
+    // The phone page's app buttons (AppShortcuts): a package per slot, "" for an empty one.
+
+    synchronized String shortcut(int slot, String fallback) {
+        return prefs.getString("shortcut" + slot, fallback);
+    }
+
+    synchronized void setShortcut(int slot, String pkg) {
+        prefs.edit().putString("shortcut" + slot, pkg).apply();
+    }
+
     private int bootCount() {
         return Settings.Global.getInt(context.getContentResolver(), Settings.Global.BOOT_COUNT, -1);
     }
