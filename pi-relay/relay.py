@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import sys
+from urllib.parse import quote
 
 from androidtvremote2 import AndroidTVRemote, CannotConnect, ConnectionClosed, InvalidAuth
 from androidtvremote2.remote import RemoteProtocol
@@ -137,7 +138,7 @@ async def page(reader, writer):
     await asyncio.gather(pipe(reader, tv_writer), pipe(tv_reader, writer))
 
 
-async def tv_locked():
+async def tv_status():
     """Ask the phone page; None when it can't be reached."""
     host, port = PAGE.rsplit(":", 1)
     try:
@@ -146,7 +147,7 @@ async def tv_locked():
         await w.drain()
         data = await asyncio.wait_for(r.read(), 5)
         w.close()
-        return bool(json.loads(data.split(b"\r\n\r\n", 1)[1])["locked"])
+        return json.loads(data.split(b"\r\n\r\n", 1)[1])
     except Exception as e:
         log.info("phone: status failed (%s)", e)
         return None
@@ -246,10 +247,10 @@ async def phone(reader, writer):
             if talk is not None and not talk["over"] and not talk.get("closing"):
                 talk["closing"] = asyncio.get_running_loop().time()   # the TV may still be listening
             return await answer(writer, 200, {"ok": True})
-        locked = await tv_locked()
-        if locked is None:
+        status = await tv_status()
+        if status is None:
             return await answer(writer, 502, {"error": "remote_fail"})
-        if locked:
+        if status["locked"]:
             return await answer(writer, 409, {"error": "remote_locked"})
         if not ready.is_set():
             return await answer(writer, 503, {"error": "remote_fail"})
@@ -257,6 +258,19 @@ async def phone(reader, writer):
             text = body.decode("utf-8").strip()
             if not text or len(text) > TEXT_MAX:
                 return await answer(writer, 400, {"error": "text_len"})
+            if all(c in "0123456789" for c in text):
+                # Digits go as the remote's number keys: PIN screens (YouTube's, for one) take those
+                # even where typed text can't reach.
+                log.info("text: %d digits as number keys", len(text))
+                for c in text:
+                    remote.send_key_command("KEYCODE_" + c)
+                    await asyncio.sleep(0.15)
+                return await answer(writer, 200, {"ok": True})
+            if status.get("showing") == "YouTube":
+                # YouTube draws its own keyboard, so typed text can't reach it: open its search instead.
+                log.info("text: %d chars as a YouTube search", len(text))
+                remote.send_launch_app_command("https://www.youtube.com/results?search_query=" + quote(text))
+                return await answer(writer, 200, {"ok": True})
             proto = remote._remote_message_protocol
             log.info("text: %d chars, ime counters %s/%s", len(text),
                      getattr(proto, "ime_counter", "?"), getattr(proto, "ime_field_counter", "?"))

@@ -95,7 +95,7 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .sheet form{display:flex;gap:8px}
 .sheet input{flex:1}
 .sheet .send{background:var(--amber);color:var(--on-amber);font-weight:700;padding:12px 16px}
-.sheet .row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.sheet .row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:8px}
 .sheet .row button{padding:10px 0;font-size:15px}
 .sheet .err{min-height:20px;margin-top:6px}
 .pw{width:40px;height:40px;padding:0;border-radius:50%;background:transparent;border:2px solid var(--red);color:var(--red);
@@ -226,7 +226,7 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 <div class="sheet" id="kb" hidden><div class="in">
   <form id="kbform" autocomplete="off"><input id="kbtext" maxlength="200" enterkeyhint="send" data-p="typeHere">
     <button class="send" type="submit" data-t="send"></button></form>
-  <div class="row"><button id="kbdel" data-a="del">⌫</button><button id="kbenter" data-a="enter">↵</button>
+  <div class="row"><button id="kbdel" data-a="del">⌫</button><button id="kbenter" data-a="enter">↵</button><button id="kbmode" data-a="kbMode"></button>
     <button id="kbclose" data-t="close"></button></div>
   <div class="err" id="kbmsg"></div>
 </div></div>
@@ -238,7 +238,7 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
 
 <script>
 var ZH = /^zh/i.test(navigator.language || '');
-var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'按一下說話',typeHere:'打字，按送出才會傳到電視',send:'送出',close:'收起',del:'刪除一個字',enter:'確認（Enter）',sent:'已送出',listening:'請說話，說完會自動送出',waitTv:'等電視準備聽…',e_voice_over:'語音已結束',sending:'送到電視…',voiceDone:'已送出語音',micNo:'手機不給麥克風權限',needHttps:'鍵盤和語音要用 https 網址開這一頁',e_text_len:'最多 200 個字',e_voice_short:'太短了，按住久一點再說',e_bad_request:'送不出去',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
+var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'按一下說話',typeHere:'打字，按送出才會傳到電視',kbMode:'切換數字或文字鍵盤',toText:'文字',send:'送出',close:'收起',del:'刪除一個字',enter:'確認（Enter）',sent:'已送出',listening:'請說話，說完會自動送出',waitTv:'等電視準備聽…',e_voice_over:'語音已結束',sending:'送到電視…',voiceDone:'已送出語音',micNo:'手機不給麥克風權限',needHttps:'鍵盤和語音要用 https 網址開這一頁',e_text_len:'最多 200 個字',e_voice_short:'太短了，按住久一點再說',e_bad_request:'送不出去',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
   setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
   step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
   more:'更多',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
@@ -258,7 +258,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'�
   slot:'按鈕 ',slotOf:' 要開：',none:'（空）',appPin:'PIN',save:'儲存（要 PIN）',saved:'已儲存',
   e_launch_fail:'開不了這個 App',e_remote_off:'遙控器還沒設定（見 pi-relay 說明）',
   e_remote_locked:'電視鎖定中，解鎖後才能遙控',e_remote_fail:'按鍵沒送到（樹莓派連不到？）'}
-: {title:'Parental Lock',taipei:'Taipei',keyboard:'Keyboard',voice:'Tap to talk',typeHere:'Type, then Send',send:'Send',close:'Close',del:'Delete',enter:'Enter',sent:'Sent',listening:'Speak now; it sends when you stop',waitTv:'Waiting for the TV…',e_voice_over:'Voice ended',sending:'Sending to the TV…',voiceDone:'Voice sent',micNo:'The phone did not allow the microphone',needHttps:'Keyboard and voice need the https address',e_text_len:'200 characters at most',e_voice_short:'Too short: hold a little longer',e_bad_request:'Could not send',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
+: {title:'Parental Lock',taipei:'Taipei',keyboard:'Keyboard',voice:'Tap to talk',typeHere:'Type, then Send',kbMode:'Number or text keyboard',toText:'ABC',send:'Send',close:'Close',del:'Delete',enter:'Enter',sent:'Sent',listening:'Speak now; it sends when you stop',waitTv:'Waiting for the TV…',e_voice_over:'Voice ended',sending:'Sending to the TV…',voiceDone:'Voice sent',micNo:'The phone did not allow the microphone',needHttps:'Keyboard and voice need the https address',e_text_len:'200 characters at most',e_voice_short:'Too short: hold a little longer',e_bad_request:'Could not send',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
   setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
   step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
   more:'More',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
@@ -521,6 +521,19 @@ $('kbbtn').onclick = function () {
   if (!kb.hidden) $('kbtext').focus();
 };
 $('kbclose').onclick = function () { $('kb').hidden = true; };
+// Number or text keyboard, remembered on this phone. The page can only ask for numbers or text: which
+// language the text keyboard shows is the phone keyboard's own choice.
+function kbMode(m) {
+  var i = $('kbtext');
+  i.setAttribute('inputmode', m === 'num' ? 'numeric' : 'text');
+  $('kbmode').textContent = m === 'num' ? T.toText : '123';
+  store('kbmode', m);
+}
+kbMode(store('kbmode') === 'num' ? 'num' : 'text');
+$('kbmode').onclick = function () {
+  kbMode(store('kbmode') === 'num' ? 'text' : 'num');
+  var i = $('kbtext'); i.blur(); i.focus();   // the phone only picks up the new keyboard on a fresh focus
+};
 $('kbform').onsubmit = function (e) {
   e.preventDefault();
   var t = $('kbtext').value.trim(); if (!t) return;
