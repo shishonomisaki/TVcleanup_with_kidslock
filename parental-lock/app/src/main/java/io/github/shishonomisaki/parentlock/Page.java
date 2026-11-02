@@ -26,6 +26,16 @@ final class Page {
         return html;
     }
 
+    /** Another file from assets/, read each time (the app icon, the manifest, the service worker). */
+    static byte[] asset(Context context, String name) throws Exception {
+        try (InputStream in = context.getAssets().open(name)) {
+            ByteArrayOutputStream buf = new ByteArrayOutputStream();
+            byte[] b = new byte[8192];
+            for (int n; (n = in.read(b)) > 0; ) buf.write(b, 0, n);
+            return buf.toByteArray();
+        }
+    }
+
     private Page() {
     }
 }

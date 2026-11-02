@@ -2,6 +2,9 @@
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1A1E3A">
+<link rel="icon" href="/icon-192.png">
 <title>Parental Lock</title>
 <script>
 // Before the first paint, so a saved light/dark choice never flashes the other one.
@@ -299,7 +302,9 @@ function tab(name) {
 }
 $('t-time').onclick = function () { tab('time'); };
 $('t-remote').onclick = function () { tab('remote'); };
-tab(store('tab') === 'remote' ? 'remote' : 'time');
+// The installed app opens on the remote (/?tab=remote); the browser opens on the tab used last.
+tab(/[?&]tab=remote/.test(location.search) || store('tab') === 'remote' ? 'remote' : 'time');
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(function () {});
 
 // Light, dark, or the phone's choice.
 function theme(v) {

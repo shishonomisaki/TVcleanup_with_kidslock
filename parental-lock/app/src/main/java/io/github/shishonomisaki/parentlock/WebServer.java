@@ -112,6 +112,13 @@ final class WebServer {
             send(out, 200, "text/html; charset=utf-8", Page.html(context));
             return;
         }
+        if (method.equals("GET")) {   // what Chrome needs to install the page as an app
+            String type = ASSETS.get(path);
+            if (type != null) {
+                sendBytes(out, type, Page.asset(context, path.substring(1)));
+                return;
+            }
+        }
         if (method.equals("GET") && path.equals("/api/status")) {
             sendJson(out, 200, status());
             return;
@@ -291,6 +298,23 @@ final class WebServer {
 
     private static void sendJson(OutputStream out, int code, JSONObject json) throws Exception {
         send(out, code, "application/json; charset=utf-8", json.toString());
+    }
+
+    private static final Map<String, String> ASSETS = new java.util.HashMap<>();
+    static {
+        ASSETS.put("/manifest.webmanifest", "application/manifest+json");
+        ASSETS.put("/sw.js", "text/javascript; charset=utf-8");
+        ASSETS.put("/icon-192.png", "image/png");
+        ASSETS.put("/icon-512.png", "image/png");
+    }
+
+    private static void sendBytes(OutputStream out, String type, byte[] bytes) throws Exception {
+        String head = String.format(Locale.ROOT,
+                "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-cache\r\n"
+                        + "Connection: close\r\n\r\n", type, bytes.length);
+        out.write(head.getBytes(StandardCharsets.US_ASCII));
+        out.write(bytes);
+        out.flush();
     }
 
     private static void send(OutputStream out, int code, String type, String body) throws Exception {
