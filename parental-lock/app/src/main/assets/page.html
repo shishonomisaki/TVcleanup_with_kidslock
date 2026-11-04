@@ -591,14 +591,18 @@ $('kbmode').onclick = function () {
   kbMode(store('kbmode') === 'num' ? 'text' : 'num');
   var i = $('kbtext'); i.blur(); i.focus();   // the phone only picks up the new keyboard on a fresh focus
 };
+var kbBusy = false;   // one text at a time: a second submit while the first is on its way would type it twice
 $('kbform').onsubmit = function (e) {
   e.preventDefault();
+  if (kbBusy) return;
   var t = $('kbtext').value.trim(); if (!t) return;
   if (!viaPi) { say(kbmsg, T.needHttps); return; }
+  kbBusy = true;
   pi('text', t, 'text/plain; charset=utf-8').then(function (s) {
+    kbBusy = false;
     if (s.error) { say(kbmsg, E(s)); return; }
     $('kbtext').value = ''; say(kbmsg, T.sent, true);
-  }).catch(function () { say(kbmsg, T.noTv); });
+  }).catch(function () { kbBusy = false; say(kbmsg, T.noTv); });
 };
 [['kbdel', 'DEL'], ['kbenter', 'ENTER']].forEach(function (k) {
   $(k[0]).onclick = function () {
