@@ -31,7 +31,9 @@ from urllib.parse import quote
 
 from androidtvremote2 import AndroidTVRemote, CannotConnect, ConnectionClosed, InvalidAuth
 from androidtvremote2.remote import RemoteProtocol
-from androidtvremote2.remotemessage_pb2 import RemoteMessage
+from androidtvremote2.remotemessage_pb2 import (
+    RemoteEditInfo, RemoteImeBatchEdit, RemoteImeObject, RemoteMessage,
+)
 
 BIND = os.environ["RELAY_BIND"]          # the Pi's LAN address
 PORT = int(os.environ.get("RELAY_PORT", "6480"))
@@ -44,6 +46,9 @@ TEXT_MAX = 200
 VOICE_MAX = 15 * 16000                   # 15 s of 8 kHz 16-bit mono
 CHUNK_MAX = 20 * 1024                    # the largest chunk the TV takes; smaller ones are not recognised
 TOKEN = open(os.path.join(HERE, "token")).read().strip().encode()
+# While this file exists beside relay.py, text for YouTube is typed instead of opened as a search link
+# (a test switch: touch it to try, rm it to go back). Checked on each request, no restart needed.
+YOUTUBE_TYPING = os.path.join(HERE, "youtube-typing")
 
 KEYS = {
     "DPAD_UP", "DPAD_DOWN", "DPAD_LEFT", "DPAD_RIGHT", "DPAD_CENTER",
@@ -57,6 +62,9 @@ log = logging.getLogger("relay")
 remote = None            # made in main(): the library needs the running event loop
 ready = None
 talk = None              # the open voice session: {"stream", "pcm", "last", "began"}
+# The counters the TV takes in a text edit (androidtvremote2 #51): from remote_ime_key_inject when a
+# keyboard opens, the field one renewed by each remote_ime_show_request. 0 = none seen yet.
+ime = {"ime": 0, "field": 0}
 
 
 async def keep_connected():
@@ -186,9 +194,14 @@ async def answer(writer, code, obj):
 
 
 def tv_heard(handle):
-    """The TV sends remote_voice_payload back once it has heard the end of what was said, and then
+    """Watch what the TV sends.
+
+    Voice: the TV sends remote_voice_payload back once it has heard the end of what was said, and then
     searches. The library ignores it; the open session is marked over, so the phone stops, and the
-    session is not ended by us before that (ending it early cancels the search)."""
+    session is not ended by us before that (ending it early cancels the search).
+
+    Text: remote_ime_key_inject (a keyboard opened) and remote_ime_show_request (the field after an
+    edit) carry the counters send_text needs; they are kept in `ime` and logged."""
     def wrapped(self, raw):
         msg = RemoteMessage()
         try:
@@ -197,10 +210,43 @@ def tv_heard(handle):
                 talk["over"] = True
                 log.info("voice: the TV heard the end after %.1f s: %s",
                          asyncio.get_running_loop().time() - talk["began"], str(msg).replace("\n", " "))
+            if msg.HasField("remote_ime_key_inject"):
+                k = msg.remote_ime_key_inject
+                ime["ime"] = k.app_info.counter or ime["ime"]
+                ime["field"] = k.text_field_status.counter_field or ime["field"]
+                log.info("ime: key_inject app %s counter %d, field %d, label %r",
+                         k.app_info.app_package, k.app_info.counter, k.text_field_status.counter_field,
+                         k.text_field_status.label or k.app_info.label)
+            elif msg.HasField("remote_ime_show_request"):
+                f = msg.remote_ime_show_request.remote_text_field_status
+                ime["field"] = f.counter_field or ime["field"]
+                # the length only: the field holds what was typed
+                log.info("ime: show_request field %d, %d chars, label %r", f.counter_field, len(f.value), f.label)
+            elif msg.HasField("remote_ime_batch_edit"):
+                b = msg.remote_ime_batch_edit
+                log.info("ime: batch_edit ime %d, field %d", b.ime_counter, b.field_counter)
         except Exception:
             pass
         return handle(self, raw)
     return wrapped
+
+
+def send_text(text):
+    """Type text into the TV's open text field, with the key-inject counters when there are any
+    (androidtvremote2 #51), else with the library's batch-edit ones."""
+    proto = remote._remote_message_protocol
+    if not ime["ime"]:
+        log.info("text: %d chars, no key_inject yet: batch-edit counters %s/%s", len(text),
+                 getattr(proto, "ime_counter", "?"), getattr(proto, "ime_field_counter", "?"))
+        remote.send_text(text)
+        return
+    log.info("text: %d chars, key_inject counters %d/%d", len(text), ime["ime"], ime["field"])
+    end = max(len(text) - 1, 0)
+    edit = RemoteEditInfo(insert=1, text_field_status=RemoteImeObject(start=end, end=end, value=text))
+    msg = RemoteMessage()
+    msg.remote_ime_batch_edit.CopyFrom(
+        RemoteImeBatchEdit(ime_counter=ime["ime"], field_counter=ime["field"], edit_info=[edit]))
+    proto._send_message(msg)
 
 
 RemoteProtocol._handle_message = tv_heard(RemoteProtocol._handle_message)
@@ -290,15 +336,12 @@ async def phone(reader, writer):
                     remote.send_key_command("KEYCODE_" + c)
                     await asyncio.sleep(0.15)
                 return await answer(writer, 200, {"ok": True})
-            if status.get("showing") == "YouTube":
+            if status.get("showing") == "YouTube" and not os.path.exists(YOUTUBE_TYPING):
                 # YouTube draws its own keyboard, so typed text can't reach it: open its search instead.
                 log.info("text: %d chars as a YouTube search", len(text))
                 remote.send_launch_app_command("https://www.youtube.com/results?search_query=" + quote(text))
                 return await answer(writer, 200, {"ok": True})
-            proto = remote._remote_message_protocol
-            log.info("text: %d chars, ime counters %s/%s", len(text),
-                     getattr(proto, "ime_counter", "?"), getattr(proto, "ime_field_counter", "?"))
-            remote.send_text(text)
+            send_text(text)
         elif what == "key":
             key = body.decode().strip()
             if key not in ("DEL", "ENTER"):
