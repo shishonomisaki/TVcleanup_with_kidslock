@@ -37,7 +37,9 @@ final class Updater {
     static final String REPO = "shishonomisaki/TVcleanup_with_kidslock";
     private static final String LATEST = "https://api.github.com/repos/" + REPO + "/releases/latest";
     private static final Pattern ASSET = Pattern.compile("parental-lock-(\\d+)\\.apk");
-    private static final long CHECK_EVERY_MS = 6 * 3600_000L;
+    // Checked when the phone page asks (opening Update), at most every 10 min: GitHub allows 60 unsigned
+    // requests an hour per address, and a release should show up soon after it is published.
+    private static final long CHECK_EVERY_MS = 10 * 60_000L;
     private static final int MAX_APK = 30 * 1024 * 1024;
 
     private static volatile String latestName = "";
@@ -80,7 +82,7 @@ final class Updater {
             checkedAt = System.currentTimeMillis();
         } catch (Exception e) {
             android.util.Log.i("ParentLock", "update check failed: " + e);
-            checkedAt = System.currentTimeMillis() - CHECK_EVERY_MS + 600_000;   // try again in 10 min
+            checkedAt = System.currentTimeMillis();   // try again at the next check, 10 min on
         } finally {
             checking = false;
         }

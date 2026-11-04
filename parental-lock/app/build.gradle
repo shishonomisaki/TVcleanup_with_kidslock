@@ -10,9 +10,9 @@ android {
         applicationId 'io.github.shishonomisaki.parentlock'
         minSdk 26
         targetSdk 34
-        // A release bumps both; the release workflow checks the tag (v1.1) against versionName.
-        versionCode 3
-        versionName '1.2'
+        // A release bumps both; the release workflow checks the tag (v1.1.1) against versionName.
+        versionCode 4
+        versionName '1.1.1'
     }
 
     // The release key signs the APKs on GitHub releases, so the app can update itself from them. It comes from
