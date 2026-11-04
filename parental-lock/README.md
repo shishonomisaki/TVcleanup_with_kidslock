@@ -42,6 +42,9 @@ TV_HOST=<tv ip> RELEASE=1 parental-lock/install.sh     # the newest GitHub relea
 TV_HOST=<tv ip> parental-lock/install.sh               # or build it here: JDK 17 and Android SDK 34
 ```
 
+**Right after installing, make a recovery code** (phone page, More, Recovery code): it unlocks the TV with
+its own remote when the phone can't reach it. Recovery is in [`docs/RECOVERY.md`](../docs/RECOVERY.md).
+
 `SET_PORT=<your port>` picks the phone page's port. A copy built on your own computer is signed with its debug
 key and can't take the release updates; moving to releases once (`SWITCH=1`, which resets the PIN) is in
 [`docs/UPDATING.md`](../docs/UPDATING.md).

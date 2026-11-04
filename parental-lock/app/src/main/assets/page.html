@@ -94,6 +94,8 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-radius:20px 20px 0 0;
   box-shadow:0 -8px 24px rgba(0,0,0,.25);padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
 .sheet[hidden]{display:none}
+.reccode{font:700 28px/1.3 ui-monospace,monospace;letter-spacing:2px;text-align:center;margin:10px 0;padding:10px;border-radius:12px;background:var(--raise)}
+.reccode[hidden]{display:none}
 .sheet .in{max-width:440px;margin:0 auto}
 .sheet form{display:flex;gap:8px}
 .sheet input{flex:1}
@@ -182,6 +184,10 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
       <input id="pin3" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
       <button class="primary" id="set" data-t="openSettingsGo"></button>
       <div class="hint" data-t="settingsHelp"></div><div class="err" id="msg2"></div></div>
+    <div class="card"><p class="lbl" data-t="recovery"></p><div class="hint" id="recinfo">—</div>
+      <input id="pin6" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
+      <button class="primary" id="recgo" data-t="recoveryGo"></button>
+      <div id="reccode" class="reccode" hidden></div><div class="err" id="msg6"></div></div>
     <div class="card"><p class="lbl" data-t="update"></p><div class="hint" id="upinfo">—</div>
       <div id="upform" hidden><input id="pin5" class="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••">
       <button class="primary" id="upgo" data-t="updateGo"></button></div><div class="err" id="msg5"></div></div>
@@ -247,7 +253,7 @@ var ZH = /^zh/i.test(navigator.language || '');
 var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'按一下說話',typeHere:'打字，按送出才會傳到電視',kbMode:'切換數字或文字鍵盤',toText:'文字',send:'送出',close:'收起',del:'刪除一個字',enter:'確認（Enter）',sent:'已送出',listening:'請說話，說完會自動送出',waitTv:'等電視準備聽…',e_voice_over:'語音已結束',sending:'送到電視…',voiceDone:'已送出語音',micNo:'手機不給麥克風權限',needHttps:'鍵盤和語音要用 https 網址開這一頁',e_text_len:'最多 200 個字',e_voice_short:'太短了，按住久一點再說',e_bad_request:'送不出去',watching:'正在看：',watchedToday:'今天已看',unlocksToday:'今天解鎖',settings:'設定',
   setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
   step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
-  more:'更多',update:'更新',version:'目前版本 ',newVersion:'有新版 ',upToDate:'已是最新版',updateGo:'輸入 PIN 更新',updDownloading:'電視正在下載新版…',updConfirm:'電視上出現安裝畫面了：用遙控器選「安裝」',e_no_update:'已經是最新版',e_install_off:'電視還不允許這個 App 安裝更新：照 README「更新」一節打開一次',e_update_bad:'下載到的檔案不對，沒有安裝',e_update_key:'新版的簽章和電視上的不同，沒有安裝：照 README「第一次換成正式版」做一次',e_update_fail:'更新失敗，稍後再試',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
+  more:'更多',recovery:'救援碼',recoveryGo:'輸入 PIN 產生救援碼',recoveryNew:'輸入 PIN 換一組新的',recNone:'⚠ 還沒設定救援碼。手機連不到電視時（Tailscale 斷線、換路由器、忘記 PIN），電視會解不開。',recSet:'已設定。換一組新的，舊的就不能用。',recShown:'現在就存進密碼管理器：這組只顯示這一次。電視鎖住時按住 OK 5 秒輸入。',update:'更新',version:'目前版本 ',newVersion:'有新版 ',upToDate:'已是最新版',updateGo:'輸入 PIN 更新',updDownloading:'電視正在下載新版…',updConfirm:'電視上出現安裝畫面了：用遙控器選「安裝」',e_no_update:'已經是最新版',e_install_off:'電視還不允許這個 App 安裝更新：照 README「更新」一節打開一次',e_update_bad:'下載到的檔案不對，沒有安裝',e_update_key:'新版的簽章和電視上的不同，沒有安裝：照 README「第一次換成正式版」做一次',e_update_fail:'更新失敗，稍後再試',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
   theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',tabTime:'時間',tabRemote:'遙控',
   online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',remain:'剩 ',
   min:'分',h:' 時 ',m:' 分',times:' 次',setOpen:'開放中',setShut:'關閉',
@@ -267,7 +273,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'�
 : {title:'Parental Lock',taipei:'Taipei',keyboard:'Keyboard',voice:'Tap to talk',typeHere:'Type, then Send',kbMode:'Number or text keyboard',toText:'ABC',send:'Send',close:'Close',del:'Delete',enter:'Enter',sent:'Sent',listening:'Speak now; it sends when you stop',waitTv:'Waiting for the TV…',e_voice_over:'Voice ended',sending:'Sending to the TV…',voiceDone:'Voice sent',micNo:'The phone did not allow the microphone',needHttps:'Keyboard and voice need the https address',e_text_len:'200 characters at most',e_voice_short:'Too short: hold a little longer',e_bad_request:'Could not send',watching:'Watching: ',watchedToday:'Watched today',unlocksToday:'Unlocks today',settings:'Settings',
   setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
   step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
-  more:'More',update:'Update',version:'Version ',newVersion:'New version ',upToDate:'up to date',updateGo:'Update with the PIN',updDownloading:'The TV is downloading it…',updConfirm:'The TV shows the install screen: choose Install with the remote',e_no_update:'Already up to date',e_install_off:'The TV does not let this app install updates yet: see Updating in the README',e_update_bad:'The download was not this app; nothing installed',e_update_key:'The new version has a different key; nothing installed: see the README, first switch to releases',e_update_fail:'The update failed; try again later',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
+  more:'More',recovery:'Recovery code',recoveryGo:'Make a recovery code with the PIN',recoveryNew:'Make a new one with the PIN',recNone:'⚠ No recovery code yet. If the phone cannot reach the TV (Tailscale down, a new router, a forgotten PIN), the TV stays locked.',recSet:'Set. A new one stops the old one working.',recShown:'Save it in a password manager now: it is shown this once. On the locked TV, hold OK for 5 s to type it.',update:'Update',version:'Version ',newVersion:'New version ',upToDate:'up to date',updateGo:'Update with the PIN',updDownloading:'The TV is downloading it…',updConfirm:'The TV shows the install screen: choose Install with the remote',e_no_update:'Already up to date',e_install_off:'The TV does not let this app install updates yet: see Updating in the README',e_update_bad:'The download was not this app; nothing installed',e_update_key:'The new version has a different key; nothing installed: see the README, first switch to releases',e_update_fail:'The update failed; try again later',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
   theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',tabTime:'Time',tabRemote:'Remote',
   online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',remain:'',
   min:'min',h:' h ',m:' min',times:'',setOpen:'Open',setShut:'Closed',
@@ -380,7 +386,7 @@ function draw() {
 var clockFmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', hour12: false});
 function clock() { $('clock').innerHTML = clockFmt.format(new Date()) + '<small>' + T.taipei + '</small>'; }
 
-function show(s) { last = s; lastOk = Date.now(); draw(); }
+function show(s) { last = s; lastOk = Date.now(); draw(); recDraw(s); }
 function poll() {
   fetch('/api/status', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(show)
     .catch(function () { last = null; draw(); });
@@ -423,6 +429,26 @@ $('ext').onclick = function () {
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { b.addEventListener(ev, cancel); });
   b.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 })();
+
+// Recovery code: made here with the PIN, shown once, typed on the locked TV with its remote.
+function recDraw(s) {
+  if (s.hasRecovery === undefined) return;
+  $('recinfo').textContent = s.hasRecovery ? T.recSet : T.recNone;
+  $('recinfo').className = s.hasRecovery ? 'hint' : 'err';
+  $('recgo').textContent = s.hasRecovery ? T.recoveryNew : T.recoveryGo;
+  var sum = document.querySelector('#more summary');
+  sum.textContent = T.more + (s.hasRecovery ? '' : ' ⚠');
+}
+$('recgo').onclick = function () {
+  var m6 = $('msg6'), p6 = $('pin6'); say(m6); $('reccode').hidden = true;
+  if (!isPin(p6.value)) { say(m6, T.pinFormat); return; }
+  api('/api/recovery', {pin: p6.value}).then(function (s) {
+    p6.value = '';
+    if (s.error) { say(m6, E(s)); return; }
+    var c = s.recoveryCode; $('reccode').textContent = c.slice(0, 5) + ' ' + c.slice(5); $('reccode').hidden = false;
+    say(m6, T.recShown, true); recDraw(s);
+  }).catch(function () { say(m6, T.noTv); });
+};
 
 // Updates from the repo's GitHub releases: the TV checks; the PIN starts it; Android asks on the TV.
 function upCheck() {

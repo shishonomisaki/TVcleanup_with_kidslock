@@ -63,3 +63,11 @@ if [ -n "$ADDR" ]; then
 else
     echo "Installed and locked. Connect Tailscale on the TV, then open http://<its 100.x address>:$PORT on the phone."
 fi
+cat <<'MSG'
+
+!! The TV now stays locked unless the phone page unlocks it. Before anything else, see docs/RECOVERY.md:
+!!   1. phone page > More > Recovery code: make one and keep it in a password manager
+!!      (it unlocks the TV with its own remote when the phone can't reach it)
+!!   2. Tailscale admin > Machines > this TV > Disable key expiry
+!! 電視現在預設鎖定。請先照 docs/RECOVERY.md 產生救援碼，並在 Tailscale 關掉電視的金鑰到期。
+MSG

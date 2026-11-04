@@ -15,4 +15,17 @@
         <item>小眼睛還很睏對不對？回去被窩裡再睡一下～</item>
     </string-array>
     <string name="info_open">用手機（已連上 Tailscale）打開：\n%1$s</string>
+    <string name="recovery_title">救援碼</string>
+    <string name="recovery_help">上下鍵換數字，左右鍵移動，也可以直接按數字鍵。按 OK 送出，按返回關閉。</string>
+    <string name="recovery_none">這台電視還沒設定救援碼。請家長在手機頁「更多 → 救援碼」產生一組。</string>
+    <string name="recovery_wrong">救援碼不對。再錯 %1$d 次就要等 1 分鐘才能再試；錯 3 次之後，每錯一次就要等 10 分鐘才能再試。</string>
+    <string name="recovery_wait">錯太多次了，請 %1$d 分鐘後再試。</string>
+    <string name="recovery_right">救援碼正確（這組已經用掉了，記得在手機頁產生新的）。要做什麼？</string>
+    <string name="recovery_menu_help">上下鍵選擇，按 OK 確定。</string>
+    <string-array name="recovery_menu">
+        <item>解鎖 60 分鐘</item>
+        <item>解鎖並開放電視設定 15 分鐘</item>
+        <item>解鎖並清掉 PIN（之後在手機頁重新設定）</item>
+        <item>移除家長鎖</item>
+    </string-array>
 </resources>

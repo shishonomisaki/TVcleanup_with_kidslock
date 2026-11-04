@@ -205,6 +205,58 @@ final class LockState {
         return "wrong_pin";
     }
 
+    synchronized void clearPin() {
+        prefs.edit().remove("pinHash").remove("salt").putInt("fails", 0).putLong("lockoutUntil", 0).apply();
+    }
+
+    // Recovery code: ten digits the parent keeps somewhere safe, typed with the TV's own remote on the lock
+    // screen when the phone can't reach the TV (Tailscale down, a new router, a forgotten PIN). It is separate
+    // from the PIN, works once, and is made on the phone page. Tries never run out, but the third miss waits a
+    // minute and each one after it ten (ten digits: years and years to guess). The wait runs on the wall clock,
+    // so a reboot doesn't reset it (the clock can't be changed while the TV is locked).
+
+    static final int RECOVERY_DIGITS = 10;
+
+    synchronized boolean hasRecovery() {
+        return prefs.contains("recHash");
+    }
+
+    /** A new code, replacing any old one; shown once on the phone page and stored only as a salted hash. */
+    synchronized String newRecovery() {
+        SecureRandom r = new SecureRandom();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < RECOVERY_DIGITS; i++) code.append(r.nextInt(10));
+        byte[] salt = new byte[16];
+        r.nextBytes(salt);
+        String s = hex(salt);
+        prefs.edit().putString("recSalt", s).putString("recHash", hash(s, code.toString()))
+                .putInt("recFails", 0).putLong("recUntil", 0).apply();
+        return code.toString();
+    }
+
+    /** How long before the next try, 0 when one may be made now. */
+    synchronized long recoveryWaitMs() {
+        return Math.max(0, prefs.getLong("recUntil", 0) - System.currentTimeMillis());
+    }
+
+    /** Tries left before a wait starts (the first wait comes at the third miss). */
+    synchronized int recoveryTriesLeft() {
+        return Math.max(0, 3 - prefs.getInt("recFails", 0));
+    }
+
+    /** True when right: the code is then used up. The third miss waits 1 min, every miss after it 10 min. */
+    synchronized boolean checkRecovery(String code) {
+        if (!hasRecovery() || recoveryWaitMs() > 0 || code == null) return false;
+        if (hash(prefs.getString("recSalt", ""), code).equals(prefs.getString("recHash", ""))) {
+            prefs.edit().remove("recHash").remove("recSalt").putInt("recFails", 0).putLong("recUntil", 0).apply();
+            return true;
+        }
+        int f = prefs.getInt("recFails", 0) + 1;
+        long wait = f < 3 ? 0 : f == 3 ? 60_000L : 600_000L;
+        prefs.edit().putInt("recFails", f).putLong("recUntil", System.currentTimeMillis() + wait).apply();
+        return false;
+    }
+
     static boolean validMinutes(int minutes) {
         for (int c : CHOICES) if (c == minutes) return true;
         return false;

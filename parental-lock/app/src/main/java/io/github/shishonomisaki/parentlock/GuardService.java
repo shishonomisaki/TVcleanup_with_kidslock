@@ -156,6 +156,12 @@ public class GuardService extends AccessibilityService {
     @Override
     public boolean onKeyEvent(KeyEvent event) {
         if (state == null || !state.locked()) return false;
+        // The lock screen's recovery box takes the keys it needs (holding OK opens it); the rest stay eaten.
+        LockActivity lock = LockActivity.front;
+        if (lock != null) {
+            lock.runOnUiThread(() -> lock.onRemoteKey(event));
+            if (!isDream(lastForeground)) return true;
+        }
         // The screensaver came up over the lock screen: let the key through to wake it, then cover the TV again.
         if (isDream(lastForeground)) {
             lastForeground = null;

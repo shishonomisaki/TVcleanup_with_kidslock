@@ -3,6 +3,23 @@
 我家 Sharp AQUOS 電視的整理包：精簡清單、家長鎖 App、手機遙控的轉送程式，還有這台電視的筆記。
 建立在 [cleanyourtv](https://github.com/Gathin23/cleanyourtv) 之上，它的工具以 git submodule 引用，不複製。
 
+> ## ⚠ 安裝前請先讀：電視可能被鎖到解不開
+>
+> 家長鎖讓電視**預設是鎖著的**，平常只能用手機頁（經由 Tailscale）解鎖。手機連不到電視時，電視就會一直鎖著，例如：
+> 電視的 Tailscale 斷線或登出、換了路由器或 Wi-Fi 密碼、忘記 PIN。電視鎖住時進不了設定，電視重開機後 ADB 也會關掉，
+> **沒有準備的話，可能只能把電視恢復原廠設定**。
+>
+> 安裝後請馬上做好這三件事，步驟在 [`docs/RECOVERY.md`](docs/RECOVERY.md)：
+>
+> 1. 在手機頁產生**救援碼**（10 位數，用電視的實體遙控器就能解鎖），存進密碼管理器。
+> 2. 在 Tailscale 管理頁關掉電視的**金鑰到期**（Disable key expiry）。
+> 3. 確認家長鎖是 **v1.1.1 以後**的正式版。
+>
+> 這是個人專案，照現況提供，不保證適用你的電視。你要自己承擔電視被鎖、需要恢復原廠設定的風險。
+>
+> 用 AI（ChatGPT、Codex 等）幫忙安裝或更新的話，請它先讀 [`docs/UPDATING.md`](docs/UPDATING.md) 和 [`docs/RECOVERY.md`](docs/RECOVERY.md)。
+> 兩份文件都要求 AI 在動手之前，先跟你完整說明風險，並取得你的同意。
+
 | 資料夾 | 內容 |
 |---|---|
 | `parental-lock/` | 家長鎖 App：電視預設鎖定，用手機（Tailscale）給時間、遙控、開 App |
@@ -33,6 +50,7 @@ TV_HOST=<tv ip> RELEASE=1 parental-lock/install.sh
 用 AI（ChatGPT 等）幫忙的話，把那份文件整份給它看，裡面有一節是寫給 AI 的。
 
 細節看 [`parental-lock/README.md`](parental-lock/README.md)；遙控器要先裝好 [`pi-relay/`](pi-relay/README.md)。
+**裝好後馬上照 [`docs/RECOVERY.md`](docs/RECOVERY.md) 產生救援碼。**
 
 ## 不進 git 的東西
 

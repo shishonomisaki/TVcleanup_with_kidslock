@@ -126,13 +126,38 @@ async def pipe(reader, writer):
         writer.close()
 
 
+page_via = None   # (address, until): the way that worked last, kept a minute so each request skips a dead one
+
+
+async def open_page():
+    """Connect to the TV's phone page: over Tailscale, or, when the TV's own Tailscale is down, over the home
+    Wi-Fi (the TV lets in this relay's LAN address too). Raises OSError when neither answers."""
+    global page_via
+    tail, port = PAGE.rsplit(":", 1)
+    loop = asyncio.get_running_loop()
+    ways = [tail, TV]
+    if page_via and page_via[1] > loop.time() and page_via[0] in ways:
+        ways.remove(page_via[0])
+        ways.insert(0, page_via[0])
+    last = None
+    for host in ways:
+        try:
+            conn = await asyncio.wait_for(asyncio.open_connection(host, int(port)), 3)
+            if host != tail and (not page_via or page_via[0] != host):
+                log.info("page: the TV's Tailscale does not answer, using the home Wi-Fi")
+            page_via = (host, loop.time() + 60)
+            return conn
+        except (OSError, asyncio.TimeoutError) as e:
+            last = e
+    raise OSError(f"TV not reachable ({last})")
+
+
 async def page(reader, writer):
     """Pass one connection from tailscale serve through to the TV's phone page."""
-    host, port = PAGE.rsplit(":", 1)
     try:
-        tv_reader, tv_writer = await asyncio.wait_for(asyncio.open_connection(host, int(port)), 5)
-    except (OSError, asyncio.TimeoutError) as e:
-        log.info("page: TV not reachable (%s)", e)
+        tv_reader, tv_writer = await open_page()
+    except OSError as e:
+        log.info("page: %s", e)
         writer.close()
         return
     await asyncio.gather(pipe(reader, tv_writer), pipe(tv_reader, writer))
@@ -140,9 +165,8 @@ async def page(reader, writer):
 
 async def tv_status():
     """Ask the phone page; None when it can't be reached."""
-    host, port = PAGE.rsplit(":", 1)
     try:
-        r, w = await asyncio.wait_for(asyncio.open_connection(host, int(port)), 5)
+        r, w = await open_page()
         w.write(b"GET /api/status HTTP/1.0\r\n\r\n")
         await w.drain()
         data = await asyncio.wait_for(r.read(), 5)

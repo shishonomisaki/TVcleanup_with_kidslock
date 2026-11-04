@@ -75,7 +75,11 @@ final class WebServer {
     private void handle(Socket c) {
         try (Socket client = c) {
             client.setSoTimeout(5000);
-            if (!isTailnet(client.getInetAddress())) {   // drop, say nothing
+            // The tailnet, or the Pi relay's home Wi-Fi address (set over adb): the Pi's way in when this TV's own
+            // Tailscale is down. Nothing else on the home network gets the page.
+            String relay = state.relayHost();
+            if (!isTailnet(client.getInetAddress())
+                    && (relay == null || !relay.equals(client.getInetAddress().getHostAddress()))) {   // drop, say nothing
                 android.util.Log.i("ParentLock", "dropped " + client.getInetAddress());
                 return;
             }
@@ -241,6 +245,11 @@ final class WebServer {
                 sendJson(out, bad == null ? 200 : 409, Updater.info(context).put("error", bad == null ? "" : bad));
                 return;
             }
+            case "/api/recovery": {
+                // A new recovery code, shown this once; the old one stops working.
+                sendJson(out, 200, status().put("recoveryCode", state.newRecovery()));
+                return;
+            }
             case "/api/shortcut": {
                 // Choosing what an app button opens is a change, so it takes the PIN; "" empties the slot.
                 int slot = slot(form.get("slot"));
@@ -268,6 +277,7 @@ final class WebServer {
                 .put("settingsOpen", state.settingsOpen())
                 .put("settingsLeftSec", state.settingsLeftMs() / 1000)
                 .put("hasPin", state.hasPin())
+                .put("hasRecovery", state.hasRecovery())
                 .put("extensions", state.extensions())
                 .put("maxExtensions", LockState.MAX_EXTENSIONS)
                 .put("durationSec", state.durationMs() / 1000)

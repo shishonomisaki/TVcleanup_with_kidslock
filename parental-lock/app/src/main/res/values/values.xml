@@ -15,4 +15,17 @@
         <item>A good sleep now means more energy to play later. Back to bed!</item>
     </string-array>
     <string name="info_open">On a phone connected to Tailscale, open:\n%1$s</string>
+    <string name="recovery_title">Recovery code</string>
+    <string name="recovery_help">Up and down change a digit, left and right move; number keys work too. OK tries it, Back closes.</string>
+    <string name="recovery_none">No recovery code is set on this TV. A parent makes one on the phone page: More, Recovery code.</string>
+    <string name="recovery_wrong">Wrong code. %1$d more misses and the next try waits 1 min; after 3 misses, each miss waits 10 min.</string>
+    <string name="recovery_wait">Too many misses: try again in %1$d min.</string>
+    <string name="recovery_right">Right code (it is used up now: make a new one on the phone page). What now?</string>
+    <string name="recovery_menu_help">Up and down to choose, OK to do it.</string>
+    <string-array name="recovery_menu">
+        <item>Unlock for 60 min</item>
+        <item>Unlock and open the TV settings for 15 min</item>
+        <item>Unlock and clear the PIN (set a new one on the phone page)</item>
+        <item>Remove Parental Lock</item>
+    </string-array>
 </resources>

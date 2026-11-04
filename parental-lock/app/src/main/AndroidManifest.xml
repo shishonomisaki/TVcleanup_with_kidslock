@@ -11,6 +11,8 @@
     <!-- Updates from this repo's releases (Updater): Android still shows its own install screen each time,
          and only installs an APK signed by the same key. The install script allows it with appops. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- The recovery menu's "remove Parental Lock": Android asks on the TV before removing it. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <!-- Android 11+ package visibility: the countdown shows on whichever app declares Home, and the phone page
          names the app on screen. -->
