@@ -65,6 +65,7 @@ public class GuardService extends AccessibilityService {
             }
             lastCheck = now;
             enforce(null);
+            keepTailscale(now);
             handler.postDelayed(this, CHECK_MS);
         }
     };
@@ -73,6 +74,46 @@ public class GuardService extends AccessibilityService {
      * What the phone page shows under "Watching": the app on screen by its name, or @locked, @home or @tv (the
      * TV input app: Live TV and HDMI), which the page words in the phone's language.
      */
+    private static final String TAILSCALE = "com.tailscale.ipn";
+    private static final long VPN_CHECK_MS = 60_000;
+    private long lastVpnCheck;
+    private int vpnMissing;
+
+    /**
+     * Keep Tailscale connected: the phones reach this page through it. Android kills it when memory runs low
+     * (1.4 GB here), and an always-on VPN is only brought back at boot or a network change. Once a minute, if
+     * there is no VPN network twice in a row, ask Tailscale to connect (its own CONNECT_VPN broadcast, which
+     * starts it in the background without showing anything).
+     */
+    private void keepTailscale(long now) {
+        if (now - lastVpnCheck < VPN_CHECK_MS) return;
+        lastVpnCheck = now;
+        try {
+            getPackageManager().getPackageInfo(TAILSCALE, 0);
+        } catch (Exception notInstalled) {
+            return;
+        }
+        if (vpnUp()) {
+            vpnMissing = 0;
+            return;
+        }
+        if (++vpnMissing < 2) return;
+        android.util.Log.i("ParentLock", "Tailscale is not connected; asking it to connect");
+        Intent i = new Intent(TAILSCALE + ".CONNECT_VPN")
+                .setComponent(new android.content.ComponentName(TAILSCALE, TAILSCALE + ".IPNReceiver"));
+        sendBroadcast(i);
+    }
+
+    private boolean vpnUp() {
+        android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+        if (cm == null) return true;   // can't tell: don't poke
+        for (android.net.Network n : cm.getAllNetworks()) {
+            android.net.NetworkCapabilities c = cm.getNetworkCapabilities(n);
+            if (c != null && c.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) return true;
+        }
+        return false;
+    }
+
     static String nowShowing() {
         GuardService s = instance;
         if (s == null) return "";

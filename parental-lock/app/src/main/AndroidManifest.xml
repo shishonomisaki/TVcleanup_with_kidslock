@@ -3,6 +3,8 @@
 
     <!-- The phone page is a tiny web server on the TV, reachable from the Tailscale network only. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- to see whether Tailscale is connected (GuardService.keepTailscale) -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Android 10+ only lets an app open the lock screen from the background when it may draw over other
          apps. The install script grants it with appops. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
