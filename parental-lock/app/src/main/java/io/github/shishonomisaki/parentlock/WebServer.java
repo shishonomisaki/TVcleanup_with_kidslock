@@ -123,6 +123,10 @@ final class WebServer {
             sendJson(out, 200, status());
             return;
         }
+        if (method.equals("GET") && path.equals("/api/update")) {
+            sendJson(out, 200, Updater.info(context));
+            return;
+        }
         if (method.equals("GET") && path.equals("/api/apps")) {
             sendJson(out, 200, new JSONObject().put("apps", AppShortcuts.launchable(context)));
             return;
@@ -227,6 +231,16 @@ final class WebServer {
                 }
                 state.openSettings(5);
                 break;
+            case "/api/update": {
+                // Updating takes the PIN and an unlocked TV: Android's install screen must not hide behind the lock.
+                if (state.locked()) {
+                    sendJson(out, 409, status().put("error", "unlock_first"));
+                    return;
+                }
+                String bad = Updater.start(context);
+                sendJson(out, bad == null ? 200 : 409, Updater.info(context).put("error", bad == null ? "" : bad));
+                return;
+            }
             case "/api/shortcut": {
                 // Choosing what an app button opens is a change, so it takes the PIN; "" empties the slot.
                 int slot = slot(form.get("slot"));

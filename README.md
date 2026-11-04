@@ -21,15 +21,23 @@ cd upstream/cleanyourtv && python3 -m venv tools/venv && tools/venv/bin/pip inst
 ## 家長鎖
 
 ```sh
-TV_HOST=<tv ip> parental-lock/install.sh
+TV_HOST=<tv ip> RELEASE=1 parental-lock/install.sh
 ```
+
+`RELEASE=1` 會裝 GitHub 上最新的正式版，不用在電腦上建置。之後從手機頁「更多 → 更新」就能更新。
+不加 `RELEASE=1` 則是在這台電腦上建置（要 JDK 17 和 Android SDK），那個版本不能從手機頁更新。
+
+## 更新
+
+看 [`docs/UPDATING.md`](docs/UPDATING.md)。自己建置過舊版的人，要先做一次「換成正式版」。
+用 AI（ChatGPT 等）幫忙的話，把那份文件整份給它看，裡面有一節是寫給 AI 的。
 
 細節看 [`parental-lock/README.md`](parental-lock/README.md)；遙控器要先裝好 [`pi-relay/`](pi-relay/README.md)。
 
 ## 不進 git 的東西
 
 電視備份（`backup*/`）、截圖、ADB 金鑰、轉送程式的 `token` 和配對憑證，`.gitignore` 都擋掉了。
-這個 repo 目前是 private；改成公開前要先檢查一遍有沒有個人資訊。
+發布用的簽章金鑰（`*.jks`、`keystore.properties`）也一樣不進 git，只存在 GitHub 的 secrets 和擁有者的電腦。
 
 ## 授權
 

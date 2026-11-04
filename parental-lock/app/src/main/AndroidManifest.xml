@@ -8,6 +8,9 @@
     <!-- Android 10+ only lets an app open the lock screen from the background when it may draw over other
          apps. The install script grants it with appops. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Updates from this repo's releases (Updater): Android still shows its own install screen each time,
+         and only installs an APK signed by the same key. The install script allows it with appops. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Android 11+ package visibility: the countdown shows on whichever app declares Home, and the phone page
          names the app on screen. -->
@@ -65,6 +68,9 @@
             android:name=".AdminReceiver"
             android:exported="true"
             android:permission="android.permission.WRITE_SECURE_SETTINGS" />
+
+        <!-- Android's answer to an update install (Updater). -->
+        <receiver android:name=".UpdateReceiver" android:exported="false" />
 
         <!-- Watches which app is on screen, eats the remote's keys while locked and runs the phone page.
              It reads no window content. -->

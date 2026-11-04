@@ -14,3 +14,8 @@ build/
 .gradle/
 local.properties
 *.apk
+
+# Release signing key: never commit (back it up somewhere safe instead)
+keystore.properties
+*.jks
+*.keystore

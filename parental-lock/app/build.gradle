@@ -10,15 +10,33 @@ android {
         applicationId 'io.github.shishonomisaki.parentlock'
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        // A release bumps both; the release workflow checks the tag (v1.1) against versionName.
+        versionCode 2
+        versionName '1.1'
+    }
+
+    // The release key signs the APKs on GitHub releases, so the app can update itself from them. It comes from
+    // the environment (the release workflow) or keystore.properties (never committed). Without it the build
+    // uses this computer's debug key: fine to try, but that APK can't update, or be updated by, a release one.
+    def ks = new Properties()
+    def ksFile = rootProject.file('keystore.properties')
+    if (ksFile.exists()) ksFile.withInputStream { ks.load(it) }
+    def ksPath = System.getenv('PL_KEYSTORE') ?: ks.getProperty('storeFile')
+    signingConfigs {
+        if (ksPath) {
+            release {
+                storeFile file(ksPath)
+                storePassword System.getenv('PL_KEYSTORE_PASSWORD') ?: ks.getProperty('storePassword')
+                keyAlias System.getenv('PL_KEY_ALIAS') ?: ks.getProperty('keyAlias')
+                keyPassword System.getenv('PL_KEY_PASSWORD') ?: ks.getProperty('keyPassword')
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
-            // Sideloaded over ADB, never published.
-            signingConfig signingConfigs.debug
+            signingConfig ksPath ? signingConfigs.release : signingConfigs.debug
         }
     }
 

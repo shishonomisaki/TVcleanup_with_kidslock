@@ -35,11 +35,16 @@ phone is set to Chinese.
 
 ## Install
 
-JDK 17 and Android SDK 34, as for the launcher, and the `tools/venv` from the main README. Android 8.0 or later.
+The `tools/venv` from the main README. Android 8.0 or later.
 
 ```bash
-TV_HOST=<tv ip> SET_PORT=<your port> addons/parental-lock/install.sh
+TV_HOST=<tv ip> RELEASE=1 parental-lock/install.sh     # the newest GitHub release; updates from the phone page
+TV_HOST=<tv ip> parental-lock/install.sh               # or build it here: JDK 17 and Android SDK 34
 ```
+
+`SET_PORT=<your port>` picks the phone page's port. A copy built on your own computer is signed with its debug
+key and can't take the release updates; moving to releases once (`SWITCH=1`, which resets the PIN) is in
+[`docs/UPDATING.md`](../docs/UPDATING.md).
 
 The TV locks as soon as the script ends. Open the address the script prints (the TV's Tailscale address and
 the port) on the phone, choose the PIN, then unlock. The app's tile on the TV shows the address again.

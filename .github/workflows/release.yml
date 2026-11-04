@@ -1,0 +1,45 @@
+# Push a tag like v1.1 (matching versionName in parental-lock/app/build.gradle) to publish a release:
+# the APK, signed with the release key from the repo secrets, named parental-lock-<versionCode>.apk,
+# with docs/releases/<tag>.md as the notes. The app on the TV updates itself from these.
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad  # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: The tag matches the app's version
+        run: |
+          v=$(sed -n "s/^ *versionName '\(.*\)'/\1/p" parental-lock/app/build.gradle)
+          c=$(sed -n 's/^ *versionCode \([0-9]*\)$/\1/p' parental-lock/app/build.gradle)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but versionName is $v"; exit 1; }
+          [ -f "docs/releases/$GITHUB_REF_NAME.md" ] || { echo "no docs/releases/$GITHUB_REF_NAME.md"; exit 1; }
+          echo "CODE=$c" >> "$GITHUB_ENV"
+      - name: Build, signed with the release key
+        env:
+          KEYSTORE_B64: ${{ secrets.PL_KEYSTORE_B64 }}
+          PL_KEYSTORE_PASSWORD: ${{ secrets.PL_KEYSTORE_PASSWORD }}
+          PL_KEY_PASSWORD: ${{ secrets.PL_KEYSTORE_PASSWORD }}
+          PL_KEY_ALIAS: parentlock
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "the PL_KEYSTORE_B64 secret is missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          export PL_KEYSTORE="$RUNNER_TEMP/release.jks"
+          cd parental-lock
+          bash gradlew assembleRelease --no-daemon -q
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/parental-lock-$CODE.apk"
+          rm -f "$RUNNER_TEMP/release.jks"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$RUNNER_TEMP/parental-lock-$CODE.apk" \
+            --title "$GITHUB_REF_NAME" --notes-file "docs/releases/$GITHUB_REF_NAME.md"
