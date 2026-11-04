@@ -11,8 +11,8 @@ android {
         minSdk 26
         targetSdk 34
         // A release bumps both; the release workflow checks the tag (v1.1) against versionName.
-        versionCode 2
-        versionName '1.1'
+        versionCode 3
+        versionName '1.2'
     }
 
     // The release key signs the APKs on GitHub releases, so the app can update itself from them. It comes from

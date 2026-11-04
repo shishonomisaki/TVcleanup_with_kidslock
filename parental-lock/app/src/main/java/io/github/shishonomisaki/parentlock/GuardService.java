@@ -208,7 +208,9 @@ public class GuardService extends AccessibilityService {
             return;
         }
         if (foreground != null && !ownOverlay && !foreground.equals("com.android.systemui")) switchApp(foreground);
-        countdown.update(isHome(lastForeground));
+        // Right after this service starts (boot, an update) no window has changed yet, so what is on screen
+        // is unknown; it is Home almost always, so the countdown shows until the first change says otherwise.
+        countdown.update(lastForeground == null || isHome(lastForeground));
         alertNearEnd(state.remainingMs());
         // lastForeground, not the event's package: the periodic check also has to close Settings when its five
         // minutes run out while someone sits still in it.
