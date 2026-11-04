@@ -212,8 +212,10 @@ def tv_heard(handle):
                          asyncio.get_running_loop().time() - talk["began"], str(msg).replace("\n", " "))
             if msg.HasField("remote_ime_key_inject"):
                 k = msg.remote_ime_key_inject
-                ime["ime"] = k.app_info.counter or ime["ime"]
-                ime["field"] = k.text_field_status.counter_field or ime["field"]
+                # taken as they come, 0 too: another app's numbers must not stay (YouTube sends 0/0
+                # and still takes text edited with 0/0)
+                ime["ime"] = k.app_info.counter
+                ime["field"] = k.text_field_status.counter_field
                 log.info("ime: key_inject app %s counter %d, field %d, label %r",
                          k.app_info.app_package, k.app_info.counter, k.text_field_status.counter_field,
                          k.text_field_status.label or k.app_info.label)
