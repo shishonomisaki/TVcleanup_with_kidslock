@@ -38,7 +38,9 @@ button{font:inherit;color:inherit;background:var(--raise);border:0;border-radius
   touch-action:manipulation;-webkit-user-select:none;user-select:none}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 button:disabled{opacity:.4;cursor:default}
-button:active:not(:disabled){filter:brightness(1.15)}
+button:active:not(:disabled),button.press{filter:brightness(1.3)}
+button,summary{transition:transform .08s}
+button.press,summary.press{transform:scale(.94)}
 .primary{width:100%;background:var(--amber);color:var(--on-amber);font-weight:700;margin-top:12px}
 .err{min-height:22px;font-size:14px;color:var(--red);margin-top:8px}
 .err.good{color:var(--amber-ink)}
@@ -112,12 +114,12 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .dpad button{position:absolute;background:transparent;border-radius:0;padding:0;display:flex;align-items:center;justify-content:center}
 .dpad button svg{width:30px;height:30px;fill:var(--fg)}
 /* Each direction owns a whole quarter of the ring, so there is no dead spot between them. */
-.dpad .u,.dpad .d,.dpad .l,.dpad .r{inset:0;width:100%;height:100%}
+.dpad .u,.dpad .d,.dpad .l,.dpad .r{inset:0;width:100%;height:100%;border-radius:50%}   /* round, so a pressed one shrinks with its arc */
 .dpad .u{clip-path:polygon(0 0,100% 0,50% 50%);align-items:flex-start;padding-top:9%}
 .dpad .d{clip-path:polygon(0 100%,100% 100%,50% 50%);align-items:flex-end;padding-bottom:9%}
 .dpad .l{clip-path:polygon(0 0,0 100%,50% 50%);justify-content:flex-start;padding-left:9%}
 .dpad .r{clip-path:polygon(100% 0,100% 100%,50% 50%);justify-content:flex-end;padding-right:9%}
-.dpad .u:active,.dpad .d:active,.dpad .l:active,.dpad .r:active{background:var(--line)}
+.dpad .u:active,.dpad .d:active,.dpad .l:active,.dpad .r:active,.dpad .press:not(.ok){background:var(--line)}
 .dpad .ok{z-index:2;top:30%;left:30%;width:40%;height:40%;border-radius:50%;background:var(--ok);color:var(--on-ok);font-weight:800;font-size:20px;
   box-shadow:0 0 0 8px var(--card)}
 .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
@@ -194,6 +196,9 @@ nav button[aria-selected="true"] svg{fill:var(--amber-ink)}
     <div class="card"><p class="lbl" data-t="theme"></p>
       <div class="seg" id="theme"><button data-v="auto" data-t="themeAuto"></button><button data-v="light" data-t="themeLight"></button>
         <button data-v="dark" data-t="themeDark"></button></div></div>
+    <div class="card"><p class="lbl" data-t="buzz"></p>
+      <div class="seg" id="buzz"><button data-v="off" data-t="buzzOff"></button><button data-v="low" data-t="buzzLow"></button>
+        <button data-v="mid" data-t="buzzMid"></button><button data-v="high" data-t="buzzHigh"></button></div></div>
   </details>
 </section>
 
@@ -254,7 +259,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'�
   setupTitle:'第一次使用：設定 6 位數 PIN',newPin:'新 PIN',again:'再輸入一次',savePin:'儲存 PIN',
   step1:'看多久',step2:'PIN',unlock:'解鎖',holdLock:'按住 3 秒立刻鎖定',locking:'已鎖定',
   more:'更多',recovery:'救援碼',recoveryGo:'輸入 PIN 產生救援碼',recoveryNew:'輸入 PIN 換一組新的',recNone:'⚠ 還沒設定救援碼。手機連不到電視時（Tailscale 斷線、換路由器、忘記 PIN），電視會解不開。',recSet:'已設定。換一組新的，舊的就不能用。',recShown:'現在就存進密碼管理器：這組只顯示這一次。電視鎖住時按住 OK 5 秒輸入。',update:'更新',version:'目前版本 ',newVersion:'有新版 ',upToDate:'已是最新版',updateGo:'輸入 PIN 更新',updDownloading:'電視正在下載新版…',updConfirm:'電視上出現安裝畫面了：用遙控器選「安裝」',e_no_update:'已經是最新版',e_install_off:'電視還不允許這個 App 安裝更新：照 README「更新」一節打開一次',e_update_bad:'下載到的檔案不對，沒有安裝',e_update_key:'新版的簽章和電視上的不同，沒有安裝：照 README「第一次換成正式版」做一次',e_update_fail:'更新失敗，稍後再試',openSettings:'開放電視設定 5 分鐘（電視要先解鎖）',openSettingsGo:'開放設定',settingsHelp:'5 分鐘後設定會自動關閉。',
-  theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',tabTime:'時間',tabRemote:'遙控',
+  theme:'外觀',themeAuto:'跟手機',themeLight:'淺色',themeDark:'深色',buzz:'按鍵震動',buzzOff:'關',buzzLow:'弱',buzzMid:'中',buzzHigh:'強',tabTime:'時間',tabRemote:'遙控',
   online:'在線上',offline:'離線',unreachable:'連不到電視',locked:'鎖定中',open:'剩下',remain:'剩 ',
   min:'分',h:' 時 ',m:' 分',times:' 次',setOpen:'開放中',setShut:'關閉',
   noTv:'連不到電視（手機的 Tailscale 有開嗎？）',pinFor:'第 2 次起延長要 PIN',settingsUntil:'設定開放到 ',
@@ -274,7 +279,7 @@ var T = ZH ? {title:'電視家長鎖',taipei:'台北',keyboard:'鍵盤',voice:'�
   setupTitle:'First time: choose a 6-digit PIN',newPin:'New PIN',again:'Once more',savePin:'Save PIN',
   step1:'How long',step2:'PIN',unlock:'Unlock',holdLock:'Hold 3 s to lock now',locking:'Locked',
   more:'More',recovery:'Recovery code',recoveryGo:'Make a recovery code with the PIN',recoveryNew:'Make a new one with the PIN',recNone:'⚠ No recovery code yet. If the phone cannot reach the TV (Tailscale down, a new router, a forgotten PIN), the TV stays locked.',recSet:'Set. A new one stops the old one working.',recShown:'Save it in a password manager now: it is shown this once. On the locked TV, hold OK for 5 s to type it.',update:'Update',version:'Version ',newVersion:'New version ',upToDate:'up to date',updateGo:'Update with the PIN',updDownloading:'The TV is downloading it…',updConfirm:'The TV shows the install screen: choose Install with the remote',e_no_update:'Already up to date',e_install_off:'The TV does not let this app install updates yet: see Updating in the README',e_update_bad:'The download was not this app; nothing installed',e_update_key:'The new version has a different key; nothing installed: see the README, first switch to releases',e_update_fail:'The update failed; try again later',openSettings:'Open TV Settings for 5 min (TV unlocked first)',openSettingsGo:'Open Settings',settingsHelp:'Settings close by themselves after 5 minutes.',
-  theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',tabTime:'Time',tabRemote:'Remote',
+  theme:'Appearance',themeAuto:'Phone',themeLight:'Light',themeDark:'Dark',buzz:'Key vibration',buzzOff:'Off',buzzLow:'Light',buzzMid:'Medium',buzzHigh:'Strong',tabTime:'Time',tabRemote:'Remote',
   online:'Online',offline:'Offline',unreachable:'Cannot reach the TV',locked:'Locked',open:'left',remain:'',
   min:'min',h:' h ',m:' min',times:'',setOpen:'Open',setShut:'Closed',
   noTv:'Cannot reach the TV (is Tailscale on?)',pinFor:'Extensions after the first need the PIN',settingsUntil:'Settings open until ',
@@ -298,9 +303,29 @@ document.querySelectorAll('[data-p]').forEach(function (e) { e.placeholder = T[e
 document.querySelectorAll('[data-a]').forEach(function (e) { e.setAttribute('aria-label', T[e.getAttribute('data-a')]); });
 function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
 function E(s) { return s.error ? (T['e_' + s.error] || s.error).replace('{n}', s.n) : ''; }
-function say(el, text, good) { el.className = good ? 'err good' : 'err'; el.textContent = text || ''; }
+function say(el, text, good) {
+  el.className = good ? 'err good' : 'err'; el.textContent = text || '';
+  if (text && !good) buzz('fail');   // a failure buzzes twice, so the phone need not be looked at
+}
 function isPin(v) { return /^\d{6}$/.test(v); }
-function buzz() { if (navigator.vibrate) navigator.vibrate(10); }
+// Touch feedback, since a phone screen gives none: every button buzzes and shrinks a little when pressed.
+// A page can set only how long, not how strong, and phones differ (30 ms was not felt on ours, 80 ms
+// barely), so the length is picked on each phone under More. n: times the press length, or 'fail'.
+var BUZZ = {off: 0, low: 40, mid: 70, high: 120}, buzzMs = 70;
+function buzz(n) {
+  if (!buzzMs) return;
+  try { if (navigator.vibrate) navigator.vibrate(n === 'fail' ? [buzzMs, 80, buzzMs] : Math.round(buzzMs * (n || 1))); } catch (e) {}
+}
+document.addEventListener('pointerdown', function (e) {
+  var b = e.target.closest && e.target.closest('button,summary');
+  if (!b || b.disabled) return;
+  buzz(); b.classList.add('press');
+  function up() {
+    b.classList.remove('press');
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { b.removeEventListener(t, up); });
+  }
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { b.addEventListener(t, up); });
+}, true);
 
 // Tabs, remembered on this phone.
 function tab(name) {
@@ -324,6 +349,13 @@ function theme(v) {
 }
 $('theme').querySelectorAll('button').forEach(function (b) { b.onclick = function () { theme(b.getAttribute('data-v')); }; });
 theme(store('theme') || 'auto');
+function buzzSet(v) {
+  if (!(v in BUZZ)) v = 'mid';
+  buzzMs = BUZZ[v]; store('buzz', v);
+  $('buzz').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-v') === v ? 'true' : 'false'); });
+}
+$('buzz').querySelectorAll('button').forEach(function (b) { b.onclick = function () { buzzSet(b.getAttribute('data-v')); buzz(); }; });
+buzzSet(store('buzz') || 'mid');
 
 var C = 603.19, mins = 0, last = null, lastOk = 0;
 var LOCK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6A5 5 0 007 6v2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2zM9 6a3 3 0 016 0v2H9V6zm3 11a2 2 0 110-4 2 2 0 010 4z"/></svg>';
@@ -422,7 +454,7 @@ $('ext').onclick = function () {
   b.addEventListener('pointerdown', function (e) {
     e.preventDefault(); say(msg3); b.classList.add('going');
     timer = setTimeout(function () {
-      timer = 0; b.classList.remove('going'); buzz();
+      timer = 0; b.classList.remove('going'); buzz(2.5);   // held long enough: locking
       api('/api/lock', {}).then(function () { say(msg3, T.locking, true); }).catch(function () { say(msg3, T.noTv); });
     }, 3000);
   });
@@ -500,7 +532,7 @@ var REPEAT = {DPAD_UP: 1, DPAD_DOWN: 1, DPAD_LEFT: 1, DPAD_RIGHT: 1, VOLUME_UP: 
 document.querySelectorAll('[data-k]').forEach(function (b) {
   var k = b.getAttribute('data-k');
   if (!REPEAT[k]) {
-    b.onclick = function () { buzz(); sendKey(k); };
+    b.onclick = function () { sendKey(k); };
     return;
   }
   var held = false, busy = false, timer = null;
@@ -511,7 +543,7 @@ document.querySelectorAll('[data-k]').forEach(function (b) {
   }
   function release() { held = false; clearTimeout(timer); }
   b.addEventListener('pointerdown', function (e) {
-    e.preventDefault(); held = true; buzz();
+    e.preventDefault(); held = true;
     busy = true; sendKey(k).then(function () { busy = false; });
     timer = setTimeout(tick, 590);
   });
@@ -540,7 +572,6 @@ function setEdit(on) {
   say(msg4, on ? T.pickSlot : '', true); markSlot();
 }
 function launch(i) {
-  buzz();
   api('/api/launch', {slot: i}).then(function (s) { say(msg4, E(s)); }).catch(function () { say(msg4, T.noTv); });
 }
 function openEdit(i) {
@@ -606,7 +637,7 @@ $('kbform').onsubmit = function (e) {
 };
 [['kbdel', 'DEL'], ['kbenter', 'ENTER']].forEach(function (k) {
   $(k[0]).onclick = function () {
-    buzz(); if (!viaPi) { say(kbmsg, T.needHttps); return; }
+    if (!viaPi) { say(kbmsg, T.needHttps); return; }
     pi('key', k[1], 'text/plain').then(function (s) { say(kbmsg, E(s)); }).catch(function () { say(kbmsg, T.noTv); });
   };
 });
@@ -646,7 +677,7 @@ $('kbform').onsubmit = function (e) {
     var r = rec = {ctx: ctx, buf: new Int16Array(PIECE), n: 0, sum: 0, cnt: 0, t: 0, ratio: ctx.sampleRate / 8000,
                    ready: false, spoke: false, quietSince: 0, chain: Promise.resolve(),
                    timer: setTimeout(stop, 10000)};
-    b.classList.add('on'); buzz(); say(msg4, T.waitTv, true);
+    b.classList.add('on'); say(msg4, T.waitTv, true);
     navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true}})
       .then(function (stream) {
         if (rec !== r) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
