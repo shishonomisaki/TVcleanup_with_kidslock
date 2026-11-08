@@ -28,6 +28,20 @@
 | `docs/` | 這台電視查過、測過的事（藍牙待機錯誤、音訊輸出、Tailscale ACL） |
 | `upstream/cleanyourtv/` | 原作者的 repo（submodule）：`tools/`、啟動器 |
 
+## 畫面
+
+**電視**：預設鎖定，遙控器按什麼都沒反應。手機給了時間才會解鎖，桌面上會顯示剩餘時間；剩 5、3、1 分鐘時，倒數會發亮閃爍 15 秒提醒。
+
+| 鎖定 | 解鎖（顯示剩餘時間） | 鎖定前倒數 |
+|---|---|---|
+| ![電視鎖定畫面](parental-lock/screenshot.jpg) | ![電視解鎖後的桌面](docs/screenshots/tv-unlocked.png) | ![鎖定前的倒數提醒](docs/screenshots/tv-countdown.png) |
+
+**手機**：選時間、輸入 PIN 就能解鎖；另一頁是遙控器，有方向鍵、語音、鍵盤和常用 App 按鈕。下面兩張是實際頁面搭配示範資料。
+
+| 解鎖時間 | 遙控器 |
+|---|---|
+| <img src="docs/screenshots/phone-time.png" alt="手機解鎖時間頁" width="300"> | <img src="docs/screenshots/phone-remote.png" alt="手機遙控器頁" width="300"> |
+
 ## 第一次取得
 
 ```sh
@@ -54,7 +68,8 @@ TV_HOST=<tv ip> RELEASE=1 parental-lock/install.sh
 
 ## 不進 git 的東西
 
-電視備份（`backup*/`）、截圖、ADB 金鑰、轉送程式的 `token` 和配對憑證，`.gitignore` 都擋掉了。
+電視備份（`backup*/`）、未經檢查的截圖（`shots/`）、ADB 金鑰、轉送程式的 `token` 和配對憑證，`.gitignore` 都擋掉了。
+說明文件用的截圖放在 `docs/screenshots/`，都先確認過沒有裝置識別資訊。
 發布用的簽章金鑰（`*.jks`、`keystore.properties`）也一樣不進 git，只存在 GitHub 的 secrets 和擁有者的電腦。
 
 ## 授權

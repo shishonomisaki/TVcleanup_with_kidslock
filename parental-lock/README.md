@@ -20,11 +20,22 @@ phone is set to Chinese.
 | **Lock now** | No PIN: hold the button for three seconds. |
 | **Open Settings 5 min** | Needs the PIN and an unlocked TV. Settings is otherwise closed, so the lock can't be switched off from the TV. Five minutes later Settings closes, even if someone is still in it. |
 
+<p>
+  <img src="../docs/screenshots/phone-time.png" alt="Time tab on the phone, TV locked" width="280">
+  <img src="../docs/screenshots/phone-remote.png" alt="Remote tab on the phone" width="280">
+</p>
+
+*The real phone page with demo data.*
+
 | On the TV | |
 |---|---|
 | **Lock screen** | Covers apps, Live TV and HDMI inputs, and comes back over whatever reaches the front. The power key still works; a voice search can open but not go anywhere; a screensaver that comes up over it wakes on any key and the lock screen returns. Between 03:00 and 08:00 a second line suggests going back to bed, a different one each time. |
 | **Countdown** | A small see-through pill with the time left, on Home only. At 5, 3 and 1 minutes left it glows and blinks for 15 seconds, and over a film it shows in the top-left corner for those 15 seconds without taking focus, so playback and the remote carry on. |
 | **Volume per app** | Optional: each app comes back at the level it was last left at, kept separately for the TV's speakers and a Bluetooth speaker, with starting levels set over adb (below). Nothing is changed until one is set. |
+
+| Unlocked, time left on Home | The warning before it locks |
+|---|---|
+| ![Home with the time left](../docs/screenshots/tv-unlocked.png) | ![The countdown glowing near the end](../docs/screenshots/tv-countdown.png) |
 
 ## Before you start
 
