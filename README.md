@@ -36,6 +36,10 @@
 |---|---|---|
 | ![電視鎖定畫面](parental-lock/screenshot.jpg) | ![電視解鎖後的桌面](docs/screenshots/tv-unlocked.png) | ![鎖定前的倒數提醒](docs/screenshots/tv-countdown.png) |
 
+看影片時，提醒會出現在左上角，不搶焦點，影片和遙控器都照常運作：
+
+![看影片時的倒數提醒](docs/screenshots/tv-countdown-video.png)
+
 **手機**：選時間、輸入 PIN 就能解鎖；另一頁是遙控器，有方向鍵、語音、鍵盤和常用 App 按鈕。下面兩張是實際頁面搭配示範資料。
 
 | 解鎖時間 | 遙控器 |

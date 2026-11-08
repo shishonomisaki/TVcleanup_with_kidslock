@@ -37,6 +37,10 @@ phone is set to Chinese.
 |---|---|
 | ![Home with the time left](../docs/screenshots/tv-unlocked.png) | ![The countdown glowing near the end](../docs/screenshots/tv-countdown.png) |
 
+Over a video the warning sits in the top-left corner and takes no focus:
+
+![The warning over a video](../docs/screenshots/tv-countdown-video.png)
+
 ## Before you start
 
 - Tailscale on the TV, signed in and set as the always-on VPN so it reconnects after a reboot (the install
