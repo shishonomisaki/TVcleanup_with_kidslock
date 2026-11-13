@@ -1,0 +1,35 @@
+pre-commit 自我檢測結果
+時間: 2026-11-12 23:24:38 +0800
+環境: git version 2.55.0.windows.3 / MINGW64_NT-10.0-26300
+結果: 通過 30、不通過 0
+----
+OK   S01 應BLOCK 實際BLOCK  內網 IP
+OK   S02 應BLOCK 實際BLOCK  主機對外 IP
+OK   S03 應BLOCK 實際BLOCK  Tailscale IP
+OK   S04 應BLOCK 實際BLOCK  英文密碼欄位
+OK   S05 應BLOCK 實際BLOCK  中文密碼欄位
+OK   S06 應BLOCK 實際BLOCK  JSON 裡的密碼
+OK   S07 應BLOCK 實際BLOCK  口語寫法的密碼
+OK   S08 應BLOCK 實際BLOCK  中文檔名
+OK   S09 應BLOCK 實際BLOCK  檔名含空白
+OK   S10 應BLOCK 實際BLOCK  空白資料夾＋中文檔名
+OK   S11 應BLOCK 實際BLOCK  Gemini API key
+OK   S12 應BLOCK 實際BLOCK  Telegram bot token
+OK   S13 應BLOCK 實際BLOCK  Supabase JWT
+OK   S14 應BLOCK 實際BLOCK  Anthropic API key
+OK   S15 應BLOCK 實際BLOCK  身分證字號
+OK   S16 應BLOCK 實際BLOCK  email 名單（6 筆）
+OK   S17 應BLOCK 實際BLOCK  UTF-16 文字檔（PowerShell 的 > 會產生）
+OK   S18 應BLOCK 實際BLOCK  Office／二進位檔
+OK   S19 應BLOCK 實際BLOCK  改名同時加入密碼
+OK   N01 應PASS 實際PASS  一般筆記
+OK   N02 應PASS 實際PASS  談密碼規則但沒有密碼值
+OK   N03 應PASS 實際PASS  本機位址
+OK   N04 應PASS 實際PASS  文件保留位址
+OK   N05 應PASS 實際PASS  四段版本號
+OK   N06 應PASS 實際PASS  行尾允許標記
+OK   N07 應PASS 實際PASS  提到稽核字眼（只提醒）
+OK   N08 應PASS 實際PASS  檢查碼不符的編號
+OK   N09 應PASS 實際PASS  列入 .scan-allow-binary 的圖片
+OK   E01 hook 檔是 LF 換行
+OK   E02 這個 repo 的 core.hooksPath = scripts（hook 已生效）

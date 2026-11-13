@@ -1,0 +1,180 @@
+#!/bin/sh
+# pre-commit 出口檢查 v2（2026-11-12）
+# 作用：commit 前掃描「這次新增的內容」，抓到疑似敏感資料就擋下。
+# 安裝：scripts/setup-git.bat（設定 git config core.hooksPath scripts，不複製檔案）
+# 驗證：scripts/selftest.bat（會真的丟案例進來測，結果寫到 scripts/selftest-result.txt）
+#
+# 設計原則（改這支腳本前先讀 MAINTENANCE.md）：
+#   1. 掃的是整份 staged diff，不靠檔名清單 —— 中文檔名、空白檔名都掃得到。
+#   2. 掃不了的東西（二進位檔、UTF-16）一律擋，不假裝掃過。
+#   3. 誤判要有窄的出口（行尾加 scan:allow），這樣就不需要 --no-verify 整個繞過。
+#   4. 腳本自己出錯時擋下 commit（fail-closed），並說清楚是腳本壞了。
+#   5. 規則裡的關鍵字都寫成不會比對到自己的形式（例如 p[a]ssword），腳本本身可以進 git。
+#
+# 這個檔案必須是 LF 換行（.gitattributes 已固定）。
+
+LC_ALL=C; export LC_ALL
+TAB="$(printf '\t')"
+FOUND=0; WARNED=0
+
+die() { echo ""; echo "pre-commit 檢查腳本本身出錯：$1"; echo "這不是你的內容有問題。請把這段訊息貼給 Claude，先不要用 --no-verify。"; exit 1; }
+
+for tool in git grep awk sed sort wc mktemp; do
+  command -v "$tool" >/dev/null 2>&1 || die "找不到指令 $tool"
+done
+
+TMP="$(mktemp -d 2>/dev/null)" || die "無法建立暫存資料夾"
+trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+
+GD="git -c core.quotepath=off diff --cached --no-color --no-ext-diff --no-textconv --no-renames --diff-filter=AM"
+$GD -U0 > "$TMP/diff" 2>"$TMP/err" || die "git diff 失敗：$(cat "$TMP/err")"
+$GD --numstat > "$TMP/numstat" 2>"$TMP/err" || die "git diff --numstat 失敗：$(cat "$TMP/err")"
+
+[ -s "$TMP/numstat" ] || exit 0
+
+block() { # block <規則名> <命中內容>
+  if [ "$FOUND" -eq 0 ]; then
+    echo ""
+    echo "=============================================="
+    echo " COMMIT 已擋下：偵測到疑似敏感內容"
+    echo "=============================================="
+    FOUND=1
+  fi
+  printf '\n[%s]\n%s\n' "$1" "$2"
+}
+warn() {
+  if [ "$WARNED" -eq 0 ]; then echo ""; echo "---- 提醒（不擋 commit，請自己再看一眼）----"; WARNED=1; fi
+  printf '[%s]\n%s\n' "$1" "$2"
+}
+show() { awk -F"$TAB" '{ c=$3; if (length(c) > 110) c=substr(c,1,110) "…"; printf "  %s:%s: %s\n", $1, $2, c }' | sed -n '1,15p'; }
+
+# ---------- A. 二進位／無法掃描的檔案：預設擋下 ----------
+awk -F"$TAB" '$1=="-" && $2=="-" { print $3 }' "$TMP/numstat" > "$TMP/binary"
+if [ -s "$TMP/binary" ]; then
+  : > "$TMP/binary_blocked"
+  while IFS= read -r f; do
+    ok=0
+    if [ -f .scan-allow-binary ]; then
+      while IFS= read -r pat; do
+        case "$pat" in ''|'#'*) continue ;; esac
+        # shellcheck disable=SC2254
+        case "$f" in $pat) ok=1; break ;; esac
+      done < .scan-allow-binary
+    fi
+    [ "$ok" -eq 1 ] || printf '  %s\n' "$f" >> "$TMP/binary_blocked"
+  done < "$TMP/binary"
+  if [ -s "$TMP/binary_blocked" ]; then
+    block "無法掃描的檔案（二進位、Office 檔、圖片、UTF-16 文字）" "$(cat "$TMP/binary_blocked")
+  → 這類檔案內容掃不到，預設不進 git。文字檔請另存成 UTF-8；
+    確定要放的檔案，把路徑寫進 .scan-allow-binary（一行一個，可用 * 萬用字元）。"
+  fi
+fi
+
+# ---------- B. 把 diff 轉成「檔案<TAB>行號<TAB>新增內容」----------
+awk -v T="$TAB" '
+  /^diff --git / { inh=0; next }
+  /^\+\+\+ / && !inh { p=substr($0,5); sub(/\t$/,"",p); if (substr(p,1,2)=="b/") p=substr(p,3); if (p ~ /^"/) { gsub(/^"|"$/,"",p); if (substr(p,1,2)=="b/") p=substr(p,3) } ; next }
+  /^@@ / { inh=1; s=$0; sub(/^@@ -[0-9,]* \+/,"",s); sub(/[, ].*$/,"",s); ln=s+0; next }
+  inh && /^\+/ { print p T ln T substr($0,2); ln++; next }
+' "$TMP/diff" > "$TMP/all.tsv" || die "awk 解析 diff 失敗"
+
+# 行內允許標記：含 scan:allow 的行不檢查，但會列出來讓人看得到
+grep -F  -e 'scan:allow' "$TMP/all.tsv" > "$TMP/allowed.tsv"
+grep -vF -e 'scan:allow' "$TMP/all.tsv" > "$TMP/added.tsv"
+
+P="^[^$TAB]*$TAB[0-9]+$TAB"      # 每條規則都只比對第三欄（內容）
+hit()  { grep -E  -e "$P.*($1)" "$TMP/added.tsv"; }
+hiti() { grep -iE -e "$P.*($1)" "$TMP/added.tsv"; }
+
+# ---------- 1. 內網／私有 IP（含 Tailscale 使用的 CGNAT 網段）----------
+RX_PRIV='(^|[^0-9.])(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3})([^0-9.]|$)'
+H="$(hit "$RX_PRIV" | show)"; [ -n "$H" ] && block "內網／私有 IP" "$H"
+
+# ---------- 2. 其他 IPv4（主機對外 IP）；本機、文件保留段、公共 DNS 不算 ----------
+OCT='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+SAFE='(127\.[0-9]+\.[0-9]+\.[0-9]+|0\.0\.0\.0|255\.255\.255\.[0-9]+|192\.0\.2\.[0-9]+|198\.51\.100\.[0-9]+|203\.0\.113\.[0-9]+|8\.8\.8\.8|8\.8\.4\.4|1\.1\.1\.1|1\.0\.0\.1|168\.95\.1\.1|168\.95\.192\.1)'
+H="$(sed -E "s/(^|[^0-9.])$SAFE([^0-9.]|\$)/\1<safe>\3/g; s/(^|[^0-9.])$SAFE([^0-9.]|\$)/\1<safe>\3/g" "$TMP/added.tsv" \
+      | grep -vE -e "$P.*$RX_PRIV" \
+      | grep -E  -e "$P.*(^|[^0-9.])$OCT\.$OCT\.$OCT\.$OCT([^0-9.]|\$)" | show)"
+[ -n "$H" ] && block "IP 位址（疑似主機對外 IP）" "$H
+  → 範例請改用 <主機IP> 或文件保留位址 192.0.2.x。"
+
+# ---------- 3. 密碼 ----------
+KW='(密碼|帳密|口令|p[a]ssword|p[a]sswd|p[w]d)'
+Q1="(\"|'|’|”|」)?"; Q2="(\"|'|「|“)?"
+SEP='(是|為|:|：|=)'
+REF='(process\.env|os\.environ|getenv|x{3,}|changeme|your[_-]?[a-z]*|example|placeholder|redacted|null|none|true|false|undefined|string|required|optional|n/a)'
+VAL='[A-Za-z0-9!@#%^&+_.~-]{4,}'
+H="$(hiti "$KW$Q1[[:space:]]*$SEP[[:space:]]*$Q2$VAL|\|[[:space:]]*$KW[[:space:]]*\|[[:space:]]*$VAL" \
+      | grep -viE -e "$KW$Q1[[:space:]]*$SEP[[:space:]]*$Q2$REF([^A-Za-z0-9]|\$)" | show)"
+[ -n "$H" ] && block "密碼" "$H"
+
+# ---------- 4. 連線字串與 URL 內嵌帳密 ----------
+H="$(hiti "jdbc(:)[a-z]|(Data Source|Initial Catalog|User Id|Integrated Security)[[:space:]]*=|[a-z][a-z0-9+.-]*(:)//[^[:space:]/:@]+(:)[^[:space:]/@]+@" | show)"
+[ -n "$H" ] && block "資料庫連線字串／URL 內嵌帳密" "$H"
+
+# ---------- 5. 金鑰與 token ----------
+H="$(hit "AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-(proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{15,}\.eyJ[A-Za-z0-9_-]{5,}|[0-9]{8,10}(:)AA[A-Za-z0-9_-]{30,}|sb_secret_[A-Za-z0-9_-]{10,}|sbp_[a-f0-9]{20,}|hooks\.slack\.com/services/[A-Za-z0-9/]{10,}|BEGIN [A-Z ]*PRIVATE KEY" | show)"
+[ -n "$H" ] && block "API key／token／私鑰" "$H"
+H="$(hiti "(secret|token|api[_-]?key|client[_-]?secret|access[_-]?key)(\"|')?[[:space:]]*(:|=)[[:space:]]*(\"|')?[A-Za-z0-9_+/=.-]{16,}" \
+      | grep -viE -e "(secret|token|key)(\"|')?[[:space:]]*(:|=)[[:space:]]*(\"|')?$REF([^A-Za-z0-9]|\$)" | show)"
+[ -n "$H" ] && block "疑似金鑰設定值" "$H"
+
+# ---------- 6. Tailscale tailnet 名稱 ----------
+H="$(hiti "[a-z0-9-]+\.ts\.net" | show)"
+[ -n "$H" ] && block "tailnet 名稱（*.ts.net）" "$H"
+
+# ---------- 7. 台灣身分證字號（驗證檢查碼，降低誤判）----------
+H="$(awk -F"$TAB" '
+  BEGIN { split("10 11 12 13 14 15 16 17 34 18 19 20 21 22 35 23 24 25 26 27 28 29 32 30 31 33", code, " ") }
+  { c=$3; s=c; off=0
+    while (match(s, /[A-Z][12][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/)) {
+      st=RSTART; id=substr(s, st, 10)
+      before=(st>1)?substr(s, st-1, 1):""; after=substr(s, st+10, 1)
+      if (before !~ /[A-Za-z0-9]/ && after !~ /[A-Za-z0-9]/) {
+        n=code[index("ABCDEFGHIJKLMNOPQRSTUVWXYZ", substr(id,1,1))]
+        sum=int(n/10) + 9*(n%10)
+        for (i=2;i<=9;i++) sum += substr(id,i,1)*(10-i)
+        sum += substr(id,10,1)
+        if (sum % 10 == 0) { printf "%s\t%s\t%s\n", $1, $2, c; break }
+      }
+      s=substr(s, st+1)
+    }
+  }' "$TMP/added.tsv" | show)"
+[ -n "$H" ] && block "身分證字號" "$H"
+
+# ---------- 8. 名單型個資：一次加入多筆 email 或手機號碼 ----------
+MODE="$(git config --get scan.emails 2>/dev/null)"; LIMIT=5; [ "$MODE" = "strict" ] && LIMIT=1
+cut -f3- "$TMP/added.tsv" | grep -oiE -e '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' \
+  | grep -viE -e 'noreply|@example\.(com|org|net)|\.invalid$|@(users\.)?noreply\.' | sort -u > "$TMP/emails"
+N="$(wc -l < "$TMP/emails" | tr -d ' ')"
+if [ "$N" -ge "$LIMIT" ]; then
+  block "email 位址 $N 筆（門檻 $LIMIT，疑似名單或個資）" "$(sed -n '1,8p' "$TMP/emails" | sed 's/^/  /')"
+fi
+cut -f3- "$TMP/added.tsv" | grep -oE -e '(^|[^0-9])09[0-9]{2}-?[0-9]{3}-?[0-9]{3}([^0-9]|$)' | tr -cd '0-9\n' | sort -u > "$TMP/phones"
+N="$(wc -l < "$TMP/phones" | tr -d ' ')"
+[ "$N" -ge 5 ] && block "手機號碼 $N 筆（疑似名單或個資）" "$(sed -n '1,5p' "$TMP/phones" | sed 's/^/  /')"
+
+# ---------- 9. 只提醒不擋：稽核與弱點相關字眼 ----------
+H="$(hit "稽核(發現)|弱點(掃描)結果|滲透(測試)報告|未修補(漏洞)|CVE(-)[0-9]{4}(-)[0-9]{4,}" | show)"
+[ -n "$H" ] && warn "出現稽核／弱點相關字眼：只談規則沒關係，貼了具體發現就要移到 private/" "$H"
+
+if [ -s "$TMP/allowed.tsv" ]; then
+  warn "有 $(wc -l < "$TMP/allowed.tsv" | tr -d ' ') 行用 scan:allow 跳過檢查" "$(show < "$TMP/allowed.tsv")"
+fi
+
+if [ "$FOUND" -eq 1 ]; then
+  cat <<'EOF'
+
+----------------------------------------------
+處理方式（擇一）：
+  1. 把內容移到 private/（不進 git）
+  2. 改成去識別化寫法，例如 <主機IP>、<密碼>
+  3. 確定是誤判：在那一行行尾加上 scan:allow（Markdown 可寫成 <!-- scan:allow -->）
+不要用 git commit --no-verify：那會連其他檢查一起跳過。
+一旦 commit 過，即使之後刪掉，內容仍留在 git history。
+----------------------------------------------
+EOF
+  exit 1
+fi
+exit 0
