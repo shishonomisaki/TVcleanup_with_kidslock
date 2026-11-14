@@ -108,6 +108,8 @@ summary::before{content:"▸ "}details[open] summary::before{content:"▾ "}
 .pw{width:40px;height:40px;padding:0;border-radius:50%;background:transparent;border:2px solid var(--red);color:var(--red);
   display:flex;align-items:center;justify-content:center}
 .pw svg{width:20px;height:20px;fill:currentColor}
+.pw.on{border-color:var(--green);color:var(--green)}
+.pw.unk{border-color:var(--mute);color:var(--mute)}
 /* The D-pad is a ring, like the countdown: four arcs and OK in the middle. */
 .dpad{position:relative;width:clamp(232px,calc(100dvh - 500px),284px);max-width:100%;aspect-ratio:1;margin:6px auto 2px;border-radius:50%;background:var(--raise);overflow:hidden}
 .dpad button,.keys button{touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -603,6 +605,17 @@ function pi(what, body, type) {
   return fetch('/pi/' + what, {method: 'POST', headers: {'Content-Type': type}, body: body})
     .then(function (r) { return r.json(); });
 }
+// Power icon: green = TV on, red = off, grey = unknown (no https address, or the relay can't tell).
+var pwBtn = document.querySelector('.pw');
+function pwShow(on) { pwBtn.className = 'pw' + (on === true ? ' on' : on === false ? '' : ' unk'); }
+var pwMiss = 0; // the link to the TV drops for ~2 s now and then: keep the last colour until 3 polls in a row say unknown
+function pwGot(on) { if (on === true || on === false) { pwMiss = 0; pwShow(on); } else if (++pwMiss >= 3) pwShow(null); }
+function pwPoll() {
+  if (!viaPi) { pwShow(null); return; }
+  fetch('/pi/state', {cache: 'no-store'}).then(function (r) { return r.json(); })
+    .then(function (s) { pwGot(s.on); }).catch(function () { pwGot(null); });
+}
+pwPoll(); setInterval(pwPoll, 5000);
 var kbmsg = $('kbmsg');
 $('kbbtn').onclick = function () {
   var kb = $('kb'); kb.hidden = !kb.hidden; say(kbmsg, viaPi ? '' : T.needHttps);

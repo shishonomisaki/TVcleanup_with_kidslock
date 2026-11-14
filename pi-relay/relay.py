@@ -15,6 +15,7 @@ On 127.0.0.1:6482, also for `tailscale serve` (mounted at /pi), what the phone p
 straight to the TV's remote service: typed text, the keyboard's delete and enter, and voice.
 Each one asks the phone page first and is refused while the TV is locked.
 
+    GET  /pi/state   {"on": true|false|null}: the TV's power as it reports it; null = unknown
     POST /pi/text    body: UTF-8 text, 200 characters at most
     POST /pi/key     body: DEL or ENTER
     POST /pi/vstart  opens the TV's voice search; answers once the TV listens
@@ -81,8 +82,9 @@ async def keep_connected():
             await asyncio.sleep(30)
     remote.add_is_available_updated_callback(
         lambda ok: (ready.set() if ok else ready.clear(), log.info("TV available: %s", ok)))
+    remote.add_is_on_updated_callback(lambda on: log.info("TV power: %s", "on" if on else "off"))
     remote.keep_reconnecting()
-    await asyncio.sleep(2)   # the TV drops the first key sent right after connecting
+    await asyncio.sleep(2)  # the TV drops the first key sent right after connecting
     ready.set()
     log.info("connected to the TV, features %s",
              getattr(remote._remote_message_protocol, "_active_features", "?"))
@@ -298,6 +300,9 @@ async def phone(reader, writer):
                    for k, v in (l.split(":", 1) for l in lines[1:] if ":" in l)}
         length = int(headers.get("content-length", "0"))
         what = path.rstrip("/").rsplit("/", 1)[-1]
+        if method == "GET" and what == "state":
+            # on: True/False as the TV last reported it; None when the relay has no link to the TV (unknown)
+            return await answer(writer, 200, {"on": remote.is_on if ready.is_set() else None})
         if method != "POST" or what not in ("text", "key", "vstart", "vchunk", "vend") \
                 or not 0 <= length <= CHUNK_MAX:
             return await answer(writer, 400, {"error": "bad_request"})
