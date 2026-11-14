@@ -615,7 +615,7 @@ function pwPoll() {
   fetch('/pi/state', {cache: 'no-store'}).then(function (r) { return r.json(); })
     .then(function (s) { pwGot(s.on); }).catch(function () { pwGot(null); });
 }
-pwPoll(); setInterval(pwPoll, 5000);
+pwPoll(); setInterval(pwPoll, 2000);
 var kbmsg = $('kbmsg');
 $('kbbtn').onclick = function () {
   var kb = $('kb'); kb.hidden = !kb.hidden; say(kbmsg, viaPi ? '' : T.needHttps);
